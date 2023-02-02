@@ -44,7 +44,6 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-// TODO figure out batching
 /** Applies Hbase RowMutation objects to an Hbase table. */
 public class HbaseRowMutationIO {
 
@@ -187,6 +186,8 @@ public class HbaseRowMutationIO {
       public void processElement(ProcessContext c) throws Exception {
         RowMutations mutations = c.element().getValue();
 
+        // TODO: we use MutateRow(RowMutations). Figure out if it'd be more efficient batch writing here
+        //  with e.g. BufferedMutator.mutate(Mutations) after grouping by rowkey.
         table.mutateRow(mutations);
         Metrics.counter("HbaseRepl", "mutations_written_to_hbase").inc();
         ++recordsWritten;
