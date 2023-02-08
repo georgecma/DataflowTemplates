@@ -16,6 +16,7 @@
 package com.google.cloud.teleport.v2.templates.utils;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
@@ -31,16 +32,31 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Utility functions to help assert equality between mutation lists for testing purposes.
- */
+/** Utility functions to help assert equality between mutation lists for testing purposes. */
 public class HashUtils {
+
+  /**
+   * Returns true if two {@link RowMutations} objects are equal by rowkey and list of {@link
+   * Mutation}.
+   *
+   * @param rowMutationA
+   * @param rowMutationB
+   * @throws Exception if hash function fails
+   */
+  public static boolean rowMutationsEquals(RowMutations rowMutationA, RowMutations rowMutationB)
+      throws Exception {
+    boolean rowKeyEquals = Arrays.equals(rowMutationA.getRow(), rowMutationB.getRow());
+    boolean mutationsEquals =
+        hashMutationList(rowMutationA.getMutations())
+            .equals(hashMutationList(rowMutationB.getMutations()));
+    return rowKeyEquals && mutationsEquals;
+  }
 
   /**
    * Hashes list of {@link Mutation} into String, by iterating through Mutation {@link Cell} and
    * picking out relevant attributes for comparison.
    *
-   * Different mutation types may have different hashing treatments.
+   * <p>Different mutation types may have different hashing treatments.
    *
    * @param mutationList
    * @return list of mutation strings that can be compared to other hashed mutation lists.
@@ -90,11 +106,12 @@ public class HashUtils {
     return mutations;
   }
 
-  /**<p>{@link RowMutations} assert equality on rowkey only and does not guarantee that its mutations
+  /**
+   * {@link RowMutations} assert equality on rowkey only and does not guarantee that its mutations
    * are the same nor that they are in the same order.
    *
-   * This transform splits a RowMutations object into <rowkey String, List<MutationsToString> so that
-   * two RowMutations objects can be compared via {@link org.apache.beam.sdk.testing.PAssert}.
+   * <p>This transform splits a RowMutations object into <rowkey String, List<MutationsToString> so
+   * that two RowMutations objects can be compared via {@link org.apache.beam.sdk.testing.PAssert}.
    */
   public static class HashHbaseRowMutations
       extends PTransform<
@@ -124,10 +141,7 @@ public class HashUtils {
       }
 
       c.output(
-          KV.of(
-              new String(rowMutations.getRow()),
-              hashMutationList(rowMutations.getMutations())
-              ));
+          KV.of(new String(rowMutations.getRow()), hashMutationList(rowMutations.getMutations())));
     }
   }
 }

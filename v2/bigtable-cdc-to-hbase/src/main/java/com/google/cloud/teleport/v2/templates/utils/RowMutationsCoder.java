@@ -43,8 +43,7 @@ public class RowMutationsCoder extends AtomicCoder<RowMutations> implements Seri
   }
 
   @Override
-  public void encode(RowMutations value, OutputStream outStream)
-      throws IOException {
+  public void encode(RowMutations value, OutputStream outStream) throws IOException {
 
     // encode row key
     byte[] rowKey = value.getRow();

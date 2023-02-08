@@ -29,10 +29,10 @@ import static com.google.cloud.teleport.v2.templates.utils.TestConstants.value2;
 
 import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutation;
 import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutationBuilder;
-import com.google.cloud.teleport.v2.templates.utils.HbaseUtils;
 import com.google.cloud.teleport.v2.templates.transforms.ConvertChangeStream;
 import com.google.cloud.teleport.v2.templates.utils.HashUtils;
 import com.google.cloud.teleport.v2.templates.utils.HashUtils.HashHbaseRowMutations;
+import com.google.cloud.teleport.v2.templates.utils.HbaseUtils;
 import com.google.cloud.teleport.v2.templates.utils.RowMutationsCoder;
 import com.google.protobuf.ByteString;
 import java.util.Arrays;
@@ -68,7 +68,6 @@ public class ConvertChangeStreamTest {
 
   @Test
   public void convertsSetCellToHbasePut() throws Exception {
-
     ChangeStreamMutation setCellMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
@@ -87,8 +86,10 @@ public class ConvertChangeStreamTest {
 
     List<Mutation> expectedMutations =
         Arrays.asList(
-            HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
-            HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily2, colQualifier2, value2, timeT));
+            HbaseUtils.HbaseMutationBuilder.createPut(
+                rowKey, colFamily, colQualifier, value, timeT),
+            HbaseUtils.HbaseMutationBuilder.createPut(
+                rowKey, colFamily2, colQualifier2, value2, timeT));
 
     PAssert.that(output)
         .containsInAnyOrder(KV.of(rowKey, HashUtils.hashMutationList(expectedMutations)));
@@ -97,7 +98,6 @@ public class ConvertChangeStreamTest {
 
   @Test
   public void convertsDeleteCellsToHbaseDelete() throws Exception {
-    // Create two change stream mutations on a single row key.
     ChangeStreamMutation deleteCellsMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
@@ -116,7 +116,8 @@ public class ConvertChangeStreamTest {
 
     List<Mutation> expectedMutations =
         Arrays.asList(
-            HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
+            HbaseUtils.HbaseMutationBuilder.createPut(
+                rowKey, colFamily, colQualifier, value, timeT),
             HbaseUtils.HbaseMutationBuilder.createDelete(rowKey, colFamily2, colQualifier2, timeT));
 
     PAssert.that(output)
@@ -126,7 +127,6 @@ public class ConvertChangeStreamTest {
 
   @Test
   public void convertsDeleteFamilyToHbaseDelete() throws Exception {
-    // Create two change stream mutations on a single row key.
     ChangeStreamMutation deleteFamilyMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000).deleteFamily(colFamily2).build();
 
@@ -140,6 +140,9 @@ public class ConvertChangeStreamTest {
                 ConvertChangeStream.convertChangeStreamMutation())
             .apply("Hash hbase mutation for comparison purposes", new HashHbaseRowMutations());
 
+    // Note that this timestamp is a placeholder and not compared by hash function.
+    // DeleteFamily change stream entries are enriched by a Time.now() timestamp
+    // during conversion.
     Long now = Time.now();
 
     List<Mutation> expectedMutations =
@@ -151,7 +154,6 @@ public class ConvertChangeStreamTest {
 
   @Test
   public void convertsMultipleRows() throws Exception {
-
     ChangeStreamMutation rowMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
@@ -165,6 +167,9 @@ public class ConvertChangeStreamTest {
             .setCell(colFamily2, colQualifier2, value, timeT * 1000)
             .build();
 
+    // Note that this timestamp is a placeholder and not compared by hash function.
+    // DeleteFamily change stream entries are enriched by a Time.now() timestamp
+    // during conversion.
     Long now = Time.now();
 
     PCollection<KV<String, List<String>>> output =
@@ -181,7 +186,8 @@ public class ConvertChangeStreamTest {
 
     List<Mutation> rowMutations =
         Arrays.asList(
-            HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
+            HbaseUtils.HbaseMutationBuilder.createPut(
+                rowKey, colFamily, colQualifier, value, timeT),
             HbaseUtils.HbaseMutationBuilder.createDelete(rowKey, colFamily, colQualifier, timeT),
             HbaseUtils.HbaseMutationBuilder.createDeleteFamily(rowKey, colFamily, now));
 
@@ -189,7 +195,8 @@ public class ConvertChangeStreamTest {
         Arrays.asList(
             HbaseUtils.HbaseMutationBuilder.createDelete(rowKey2, colFamily, colQualifier, timeT),
             HbaseUtils.HbaseMutationBuilder.createDelete(rowKey2, colFamily2, colQualifier2, timeT),
-            HbaseUtils.HbaseMutationBuilder.createPut(rowKey2, colFamily2, colQualifier2, value, timeT));
+            HbaseUtils.HbaseMutationBuilder.createPut(
+                rowKey2, colFamily2, colQualifier2, value, timeT));
     PAssert.that(output)
         .containsInAnyOrder(
             KV.of(rowKey, HashUtils.hashMutationList(rowMutations)),
@@ -200,8 +207,6 @@ public class ConvertChangeStreamTest {
 
   @Test
   public void addsSpecialMutationInTwoWayReplication() throws Exception {
-
-    // Create two change stream mutations on a single row key.
     ChangeStreamMutation setCellMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
@@ -221,8 +226,10 @@ public class ConvertChangeStreamTest {
 
     List<Mutation> expectedMutations =
         Arrays.asList(
-            HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
-            HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily2, colQualifier2, value2, timeT),
+            HbaseUtils.HbaseMutationBuilder.createPut(
+                rowKey, colFamily, colQualifier, value, timeT),
+            HbaseUtils.HbaseMutationBuilder.createPut(
+                rowKey, colFamily2, colQualifier2, value2, timeT),
             // Special mutation that denotes origin of replication.
             HbaseUtils.HbaseMutationBuilder.createDelete(rowKey, colFamily2, cbtQualifier, 0L));
 
@@ -233,8 +240,6 @@ public class ConvertChangeStreamTest {
 
   @Test
   public void filtersOutHbaseReplicatedMutations() {
-
-    // Create two change stream mutations on a single row key.
     ChangeStreamMutation setCellMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
@@ -260,7 +265,6 @@ public class ConvertChangeStreamTest {
 
   @Test
   public void filtersAndReplicatesMultipleRowsWithTwoWayReplication() throws Exception {
-
     ChangeStreamMutation rowMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
@@ -287,7 +291,8 @@ public class ConvertChangeStreamTest {
 
     List<Mutation> rowMutations =
         Arrays.asList(
-            HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
+            HbaseUtils.HbaseMutationBuilder.createPut(
+                rowKey, colFamily, colQualifier, value, timeT),
             // Special mutation that denotes origin of replication.
             HbaseUtils.HbaseMutationBuilder.createDelete(rowKey, colFamily, cbtQualifier, 0L));
 

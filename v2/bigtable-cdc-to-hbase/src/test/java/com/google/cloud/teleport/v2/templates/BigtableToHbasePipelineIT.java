@@ -131,8 +131,7 @@ public class BigtableToHbasePipelineIT extends TemplateTestBase {
 
     // Clear hbase table
     long now = Time.now();
-    hbaseTable.delete(
-        HbaseUtils.HbaseMutationBuilder.createDeleteFamily(rowKey, colFamily, now));
+    hbaseTable.delete(HbaseUtils.HbaseMutationBuilder.createDeleteFamily(rowKey, colFamily, now));
   }
 
   @Test

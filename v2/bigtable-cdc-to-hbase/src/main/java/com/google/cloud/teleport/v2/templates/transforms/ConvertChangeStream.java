@@ -200,12 +200,12 @@ public class ConvertChangeStream {
     }
 
     /**
-     * Converts Cdc ChangeStreamMutation to HBase RowMutations object.
+     * Converts Bigtable ChangeStreamMutation to HBase RowMutations object.
      *
      * @param mutation changeStreamMutation
      * @return Hbase RowMutations object
      */
-    private static RowMutations convertToRowMutations(ChangeStreamMutation mutation)
+    public static RowMutations convertToRowMutations(ChangeStreamMutation mutation)
         throws Exception {
       // Check for empty change stream mutation, should never happen.
       if (mutation.getEntries().size() == 0) {

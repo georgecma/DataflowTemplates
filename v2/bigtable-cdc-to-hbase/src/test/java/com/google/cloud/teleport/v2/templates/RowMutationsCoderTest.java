@@ -1,3 +1,18 @@
+/*
+ * Copyright (C) 2023 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package com.google.cloud.teleport.v2.templates;
 
 import static com.google.cloud.teleport.v2.templates.utils.TestConstants.colFamily;
@@ -5,10 +20,8 @@ import static com.google.cloud.teleport.v2.templates.utils.TestConstants.colFami
 import static com.google.cloud.teleport.v2.templates.utils.TestConstants.colQualifier;
 import static com.google.cloud.teleport.v2.templates.utils.TestConstants.colQualifier2;
 import static com.google.cloud.teleport.v2.templates.utils.TestConstants.rowKey;
-import static com.google.cloud.teleport.v2.templates.utils.TestConstants.rowKey2;
 import static com.google.cloud.teleport.v2.templates.utils.TestConstants.timeT;
 import static com.google.cloud.teleport.v2.templates.utils.TestConstants.value;
-import static com.google.cloud.teleport.v2.templates.utils.TestConstants.value2;
 
 import com.google.cloud.teleport.v2.templates.utils.HashUtils;
 import com.google.cloud.teleport.v2.templates.utils.HbaseUtils;
@@ -16,8 +29,6 @@ import com.google.cloud.teleport.v2.templates.utils.RowMutationsCoder;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.Arrays;
 import org.apache.hadoop.hbase.client.RowMutations;
 import org.junit.After;
@@ -29,10 +40,7 @@ import org.junit.runners.JUnit4;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Test that {@link RowMutationsCoder} encoding does not change {@link RowMutations}
- * object.
- */
+/** Test that {@link RowMutationsCoder} encoding does not change {@link RowMutations} object. */
 @RunWith(JUnit4.class)
 public class RowMutationsCoderTest {
   private static final Logger log = LoggerFactory.getLogger(RowMutationsCoderTest.class);
@@ -41,24 +49,11 @@ public class RowMutationsCoderTest {
   private ByteArrayOutputStream outputStream;
   private ByteArrayInputStream inputStream;
 
-  /**
-   * Asserts two {@link RowMutations} objects are equal.
-   * @param rowMutationA
-   * @param rowMutationB
-   * @throws Exception if hash function fails
-   */
-  private void assertRowMutationsEqual(RowMutations rowMutationA, RowMutations rowMutationB) throws Exception {
-    Assert.assertTrue(Arrays.equals(rowMutationA.getRow(), rowMutationB.getRow()));
-    Assert.assertEquals(
-        HashUtils.hashMutationList(rowMutationA.getMutations()),
-        HashUtils.hashMutationList(rowMutationB.getMutations())
-    );
-  }
-
   @Before
   public void setUp() {
     outputStream = new ByteArrayOutputStream();
   }
+
   @After
   public void tearDown() throws IOException {
     outputStream.close();
@@ -70,7 +65,8 @@ public class RowMutationsCoderTest {
         new RowMutations(rowKey.getBytes())
             .add(
                 Arrays.asList(
-                    HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT)));
+                    HbaseUtils.HbaseMutationBuilder.createPut(
+                        rowKey, colFamily, colQualifier, value, timeT)));
     coder.encode(put, outputStream);
 
     inputStream = new ByteArrayInputStream(outputStream.toByteArray());
@@ -78,17 +74,19 @@ public class RowMutationsCoderTest {
     RowMutations decodedPut = coder.decode(inputStream);
 
     Assert.assertTrue(inputStream.readAllBytes().length == 0);
-    assertRowMutationsEqual(put, decodedPut);
+    Assert.assertTrue(HashUtils.rowMutationsEquals(put, decodedPut));
   }
 
   @Test
   public void encodeMultipleMutations() throws Exception {
-    RowMutations multipleMutations  =
+    RowMutations multipleMutations =
         new RowMutations(rowKey.getBytes())
             .add(
                 Arrays.asList(
-                    HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
-                    HbaseUtils.HbaseMutationBuilder.createDelete(rowKey, colFamily, colQualifier, timeT),
+                    HbaseUtils.HbaseMutationBuilder.createPut(
+                        rowKey, colFamily, colQualifier, value, timeT),
+                    HbaseUtils.HbaseMutationBuilder.createDelete(
+                        rowKey, colFamily, colQualifier, timeT),
                     HbaseUtils.HbaseMutationBuilder.createDeleteFamily(rowKey, colFamily, timeT)));
     coder.encode(multipleMutations, outputStream);
 
@@ -97,7 +95,7 @@ public class RowMutationsCoderTest {
     RowMutations decodedMultipleMutations = coder.decode(inputStream);
 
     Assert.assertTrue(inputStream.available() == 0);
-    assertRowMutationsEqual(multipleMutations, decodedMultipleMutations);
+    Assert.assertTrue(HashUtils.rowMutationsEquals(multipleMutations, decodedMultipleMutations));
   }
 
   @Test
@@ -106,12 +104,14 @@ public class RowMutationsCoderTest {
         new RowMutations(rowKey.getBytes())
             .add(
                 Arrays.asList(
-                    HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT)));
+                    HbaseUtils.HbaseMutationBuilder.createPut(
+                        rowKey, colFamily, colQualifier, value, timeT)));
     RowMutations deleteCols =
         new RowMutations(rowKey.getBytes())
             .add(
                 Arrays.asList(
-                    HbaseUtils.HbaseMutationBuilder.createDelete(rowKey, colFamily, colQualifier, timeT)));
+                    HbaseUtils.HbaseMutationBuilder.createDelete(
+                        rowKey, colFamily, colQualifier, timeT)));
     RowMutations deleteFamily =
         new RowMutations(rowKey.getBytes())
             .add(
@@ -129,9 +129,9 @@ public class RowMutationsCoderTest {
     RowMutations decodedDeleteFamily = coder.decode(inputStream);
 
     Assert.assertTrue(inputStream.available() == 0);
-    assertRowMutationsEqual(put, decodedPut);
-    assertRowMutationsEqual(deleteCols, decodedDeleteCols);
-    assertRowMutationsEqual(deleteFamily, decodedDeleteFamily);
+    Assert.assertTrue(HashUtils.rowMutationsEquals(put, decodedPut));
+    Assert.assertTrue(HashUtils.rowMutationsEquals(deleteCols, decodedDeleteCols));
+    Assert.assertTrue(HashUtils.rowMutationsEquals(deleteFamily, decodedDeleteFamily));
   }
 
   @Test
@@ -140,8 +140,10 @@ public class RowMutationsCoderTest {
         new RowMutations(rowKey.getBytes())
             .add(
                 Arrays.asList(
-                    HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
-                    HbaseUtils.HbaseMutationBuilder.createDelete(rowKey, colFamily2, colQualifier2, timeT+1),
+                    HbaseUtils.HbaseMutationBuilder.createPut(
+                        rowKey, colFamily, colQualifier, value, timeT),
+                    HbaseUtils.HbaseMutationBuilder.createDelete(
+                        rowKey, colFamily2, colQualifier2, timeT + 1),
                     HbaseUtils.HbaseMutationBuilder.createDeleteFamily(rowKey, colFamily, timeT)));
 
     coder.encode(complexMutation, outputStream);
@@ -155,9 +157,8 @@ public class RowMutationsCoderTest {
     RowMutations decodedComplexMutation3 = coder.decode(inputStream);
 
     Assert.assertTrue(inputStream.available() == 0);
-    assertRowMutationsEqual(complexMutation, decodedComplexMutation);
-    assertRowMutationsEqual(complexMutation, decodedComplexMutation2);
-    assertRowMutationsEqual(complexMutation, decodedComplexMutation3);
+    Assert.assertTrue(HashUtils.rowMutationsEquals(complexMutation, decodedComplexMutation));
+    Assert.assertTrue(HashUtils.rowMutationsEquals(complexMutation, decodedComplexMutation2));
+    Assert.assertTrue(HashUtils.rowMutationsEquals(complexMutation, decodedComplexMutation3));
   }
-
 }
