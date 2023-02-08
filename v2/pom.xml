@@ -688,6 +688,7 @@
     </profiles>
 
     <modules>
+        <module>bigtable-cdc-to-hbase</module>
         <module>bigquery-to-bigtable</module>
         <module>bigquery-to-parquet</module>
         <module>cdc-parent</module>
@@ -714,7 +715,6 @@
         <module>pubsub-cdc-to-bigquery</module>
         <module>pubsub-to-mongodb</module>
         <module>streaming-data-generator</module>
-        <module>bigtable-cdc-to-hbase</module>
     </modules>
 
 </project>

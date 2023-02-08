@@ -177,25 +177,16 @@ public class HbaseRowMutationIO {
         table = connection.getTable(TableName.valueOf(tableId));
       }
 
-      @StartBundle
-      public void startBundle(StartBundleContext c) throws IOException {
-        recordsWritten = 0;
-      }
-
       @ProcessElement
       public void processElement(ProcessContext c) throws Exception {
         RowMutations mutations = c.element().getValue();
 
-        // TODO: we use MutateRow(RowMutations). Figure out if it'd be more efficient batch writing here
+        // TODO: we use MutateRow(RowMutations). Figure out if it'd be more efficient batch writing
+        // here
         //  with e.g. BufferedMutator.mutate(Mutations) after grouping by rowkey.
         table.mutateRow(mutations);
         Metrics.counter("HbaseRepl", "mutations_written_to_hbase").inc();
         ++recordsWritten;
-      }
-
-      @FinishBundle
-      public void finishBundle() throws Exception {
-        LOG.debug("Wrote {} records", recordsWritten);
       }
 
       @Teardown

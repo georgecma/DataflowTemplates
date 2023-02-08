@@ -21,6 +21,7 @@ import static com.google.cloud.teleport.v2.templates.constants.TestConstants.row
 import static com.google.cloud.teleport.v2.templates.constants.TestConstants.value;
 
 import com.google.cloud.Timestamp;
+import com.google.cloud.bigtable.data.v2.models.Range.TimestampRange;
 import com.google.cloud.bigtable.data.v2.models.RowMutation;
 import com.google.cloud.teleport.it.TemplateTestBase;
 import com.google.cloud.teleport.it.bigtable.StaticBigtableResourceManager;
@@ -28,6 +29,7 @@ import com.google.cloud.teleport.metadata.TemplateIntegrationTest;
 import com.google.cloud.teleport.v2.templates.BigtableToHbasePipeline.BigtableToHbasePipelineOptions;
 import com.google.cloud.teleport.v2.templates.utils.HbaseUtils;
 import com.google.cloud.teleport.v2.templates.utils.MutationBuilderUtils;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -65,6 +67,7 @@ public class BigtableToHbasePipelineIT extends TemplateTestBase {
   @BeforeClass
   public static void setUpCluster() throws Exception {
 
+    // TODO: remove these params after Cdc GA
     // Parse input as though from a live run. This requires passing in params to test via
     // -Dparameters="..."
     String input = System.getProperty("parameters");
@@ -164,11 +167,14 @@ public class BigtableToHbasePipelineIT extends TemplateTestBase {
     // Write to Bigtable.
     RowMutation setCell =
         RowMutation.create(pipelineOptions.getTableId(), rowKey)
-            .setCell(colFamily, colQualifier, value);
+            .setCell(colFamily, colQualifier, Time.now() * 1000, value);
 
     RowMutation deleteCell =
         RowMutation.create(pipelineOptions.getTableId(), rowKey)
-            .deleteCells(colFamily, colQualifier);
+            .deleteCells(
+                colFamily,
+                ByteString.copyFromUtf8(colQualifier),
+                TimestampRange.create(0L, (Time.now() + 2) * 1000));
     bigtableResourceManager.write(setCell);
     bigtableResourceManager.write(deleteCell);
 
