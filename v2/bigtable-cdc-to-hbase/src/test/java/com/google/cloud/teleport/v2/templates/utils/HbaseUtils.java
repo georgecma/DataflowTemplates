@@ -15,14 +15,16 @@
  */
 package com.google.cloud.teleport.v2.templates.utils;
 
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.colFamily;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.colFamily2;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.colFamily;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.colFamily2;
 
 import java.io.IOException;
 import java.util.UUID;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Get;
+import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Table;
 
@@ -48,5 +50,25 @@ public class HbaseUtils {
       throws IOException {
     TableName tableName = TableName.valueOf(name);
     return hbaseTestingUtil.createTable(tableName, new String[] {colFamily, colFamily2});
+  }
+
+  /** Builder class for Hbase mutations. */
+  public static class HbaseMutationBuilder {
+
+    public static Put createPut(
+        String rowKey, String colFamily, String colQualifier, String value, long atTimestamp) {
+      return new Put(rowKey.getBytes(), atTimestamp)
+          .addColumn(colFamily.getBytes(), colQualifier.getBytes(), value.getBytes());
+    }
+
+    public static Delete createDelete(
+        String rowKey, String colFamily, String colQualifier, long atTimestamp) {
+      return new Delete(rowKey.getBytes(), atTimestamp)
+          .addColumns(colFamily.getBytes(), colQualifier.getBytes());
+    }
+
+    public static Delete createDeleteFamily(String rowKey, String colFamily, long atTimestamp) {
+      return new Delete(rowKey.getBytes(), atTimestamp).addFamily(colFamily.getBytes());
+    }
   }
 }

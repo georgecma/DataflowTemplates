@@ -15,10 +15,10 @@
  */
 package com.google.cloud.teleport.v2.templates;
 
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.colFamily;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.colQualifier;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.rowKey;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.value;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.colFamily;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.colQualifier;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.rowKey;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.value;
 
 import com.google.cloud.Timestamp;
 import com.google.cloud.bigtable.data.v2.models.Range.TimestampRange;
@@ -28,10 +28,8 @@ import com.google.cloud.teleport.it.bigtable.StaticBigtableResourceManager;
 import com.google.cloud.teleport.metadata.TemplateIntegrationTest;
 import com.google.cloud.teleport.v2.templates.BigtableToHbasePipeline.BigtableToHbasePipelineOptions;
 import com.google.cloud.teleport.v2.templates.utils.HbaseUtils;
-import com.google.cloud.teleport.v2.templates.utils.MutationBuilderUtils;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.beam.sdk.PipelineResult;
@@ -134,7 +132,7 @@ public class BigtableToHbasePipelineIT extends TemplateTestBase {
     // Clear hbase table
     long now = Time.now();
     hbaseTable.delete(
-        MutationBuilderUtils.HbaseMutationBuilder.createDeleteFamily(rowKey, colFamily, now));
+        HbaseUtils.HbaseMutationBuilder.createDeleteFamily(rowKey, colFamily, now));
   }
 
   @Test

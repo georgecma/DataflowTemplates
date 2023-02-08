@@ -44,9 +44,10 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Writes Hbase RowMutations to a Hbase table.
- *  Based off of {@link org.apache.beam.sdk.io.hbase.HBaseIO}.
- *  HbaseIO applies Mutations, this class applies RowMutations objects.
+/**
+ * Writes Hbase RowMutations to a Hbase table. Based off of {@link
+ * org.apache.beam.sdk.io.hbase.HBaseIO}. HbaseIO applies Mutations, this class applies RowMutations
+ * objects.
  */
 public class HbaseRowMutationIO {
 
@@ -58,7 +59,7 @@ public class HbaseRowMutationIO {
     return new WriteRowMutations(null /* Configuration */, "");
   }
 
-  /** Transformation that writes RowMutation objects to an Hbase table. */
+  /** Transformation that writes RowMutation objects to a Hbase table. */
   public static class WriteRowMutations
       extends PTransform<PCollection<KV<byte[], RowMutations>>, PDone> {
 
@@ -206,6 +207,7 @@ public class HbaseRowMutationIO {
       public void populateDisplayData(DisplayData.Builder builder) {
         builder.delegate(WriteRowMutations.this);
       }
+
       private transient Connection connection;
       private transient Table table;
     }

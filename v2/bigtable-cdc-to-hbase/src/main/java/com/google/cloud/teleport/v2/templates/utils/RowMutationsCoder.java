@@ -21,7 +21,6 @@ import java.io.OutputStream;
 import java.io.Serializable;
 import java.util.List;
 import org.apache.beam.sdk.coders.AtomicCoder;
-import org.apache.beam.sdk.coders.CoderException;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
@@ -47,7 +46,7 @@ public class RowMutationsCoder extends AtomicCoder<RowMutations> implements Seri
 
   @Override
   public void encode(RowMutations value, OutputStream outStream)
-      throws CoderException, IOException {
+      throws IOException {
 
     // encode row key
     byte[] rowKey = value.getRow();
@@ -65,16 +64,6 @@ public class RowMutationsCoder extends AtomicCoder<RowMutations> implements Seri
       MutationType type = getType(mutation);
       MutationProto proto = ProtobufUtil.toMutation(type, mutation);
       proto.writeDelimitedTo(outStream);
-    }
-  }
-
-  private static MutationType getType(Mutation mutation) {
-    if (mutation instanceof Put) {
-      return MutationType.PUT;
-    } else if (mutation instanceof Delete) {
-      return MutationType.DELETE;
-    } else {
-      throw new IllegalArgumentException("Only Put and Delete are supported");
     }
   }
 
@@ -97,5 +86,15 @@ public class RowMutationsCoder extends AtomicCoder<RowMutations> implements Seri
       }
     }
     return rowMutations;
+  }
+
+  private static MutationType getType(Mutation mutation) {
+    if (mutation instanceof Put) {
+      return MutationType.PUT;
+    } else if (mutation instanceof Delete) {
+      return MutationType.DELETE;
+    } else {
+      throw new IllegalArgumentException("Only Put and Delete are supported");
+    }
   }
 }

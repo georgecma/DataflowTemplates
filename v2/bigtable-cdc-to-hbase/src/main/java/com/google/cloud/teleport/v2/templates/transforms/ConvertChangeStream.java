@@ -21,7 +21,6 @@ import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutation;
 import com.google.cloud.bigtable.data.v2.models.DeleteCells;
 import com.google.cloud.bigtable.data.v2.models.DeleteFamily;
 import com.google.cloud.bigtable.data.v2.models.Entry;
-import com.google.cloud.bigtable.data.v2.models.Range.BoundType;
 import com.google.cloud.bigtable.data.v2.models.Range.TimestampRange;
 import com.google.cloud.bigtable.data.v2.models.SetCell;
 import com.google.protobuf.ByteString;
@@ -249,8 +248,10 @@ public class ConvertChangeStream {
 
       // Convert timestamp to milliseconds
       long ts = convertMicroToMilliseconds(deleteCells.getTimestampRange().getEnd());
-      // If RowMutation is created without a timestamp,then the timestamp end bound becomes null and unbounded.
-      // TODO: see if timestamp range will ever be unbounded or will always have a timestamp
+      // If RowMutation is created with an unbounded timestamp, the mutation is meant to delete
+      // all versions of a cell up to the point of operation.
+      // This behavior is approximated by casting the Hbase delete as deleting up to current point
+      // in time.
       if (deleteCells.getTimestampRange() == TimestampRange.unbounded()) {
         ts = Time.now();
       }

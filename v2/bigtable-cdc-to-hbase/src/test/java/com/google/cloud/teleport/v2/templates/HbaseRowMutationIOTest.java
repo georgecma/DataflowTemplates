@@ -15,19 +15,18 @@
  */
 package com.google.cloud.teleport.v2.templates;
 
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.colFamily;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.colFamily2;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.colQualifier;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.colQualifier2;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.rowKey;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.rowKey2;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.timeT;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.value;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.value2;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.colFamily;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.colFamily2;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.colQualifier;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.colQualifier2;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.rowKey;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.rowKey2;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.timeT;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.value;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.value2;
 
 import com.google.cloud.teleport.v2.templates.transforms.HbaseRowMutationIO;
 import com.google.cloud.teleport.v2.templates.utils.HbaseUtils;
-import com.google.cloud.teleport.v2.templates.utils.MutationBuilderUtils.HbaseMutationBuilder;
 import com.google.cloud.teleport.v2.templates.utils.RowMutationsCoder;
 import java.io.IOException;
 import java.util.Arrays;
@@ -85,15 +84,15 @@ public class HbaseRowMutationIOTest {
     RowMutations rowMutationsOnTwoColFamilies = new RowMutations(rowKey.getBytes());
     rowMutationsOnTwoColFamilies.add(
         Arrays.asList(
-            HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
-            HbaseMutationBuilder.createPut(rowKey, colFamily2, colQualifier2, value2, timeT)));
+            HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
+            HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily2, colQualifier2, value2, timeT)));
 
     RowMutations overwritingRowMutations =
         new RowMutations(rowKey2.getBytes())
             .add(
                 Arrays.asList(
-                    HbaseMutationBuilder.createPut(rowKey2, colFamily, colQualifier, value, timeT),
-                    HbaseMutationBuilder.createPut(
+                    HbaseUtils.HbaseMutationBuilder.createPut(rowKey2, colFamily, colQualifier, value, timeT),
+                    HbaseUtils.HbaseMutationBuilder.createPut(
                         rowKey2, colFamily, colQualifier, value2, timeT)));
 
     pipeline
@@ -127,17 +126,17 @@ public class HbaseRowMutationIOTest {
         new RowMutations(rowKey.getBytes())
             .add(
                 Arrays.asList(
-                    HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
-                    HbaseMutationBuilder.createDelete(rowKey, colFamily, colQualifier, timeT)));
+                    HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
+                    HbaseUtils.HbaseMutationBuilder.createDelete(rowKey, colFamily, colQualifier, timeT)));
     // Expect delete family to delete entire row.
     RowMutations deleteColFamilyMutation =
         new RowMutations(rowKey2.getBytes())
             .add(
                 Arrays.asList(
-                    HbaseMutationBuilder.createPut(rowKey2, colFamily, colQualifier, value, timeT),
-                    HbaseMutationBuilder.createPut(
+                    HbaseUtils.HbaseMutationBuilder.createPut(rowKey2, colFamily, colQualifier, value, timeT),
+                    HbaseUtils.HbaseMutationBuilder.createPut(
                         rowKey2, colFamily, colQualifier2, value2, timeT),
-                    HbaseMutationBuilder.createDeleteFamily(rowKey2, colFamily, Long.MAX_VALUE)));
+                    HbaseUtils.HbaseMutationBuilder.createDeleteFamily(rowKey2, colFamily, Long.MAX_VALUE)));
 
     pipeline
         .apply(
@@ -168,17 +167,17 @@ public class HbaseRowMutationIOTest {
         new RowMutations(rowKey.getBytes())
             .add(
                 Arrays.asList(
-                    HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT)));
+                    HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT)));
     RowMutations delete =
         new RowMutations(rowKey.getBytes())
             .add(
                 Arrays.asList(
-                    HbaseMutationBuilder.createDeleteFamily(rowKey, colFamily, timeT + 1)));
+                    HbaseUtils.HbaseMutationBuilder.createDeleteFamily(rowKey, colFamily, timeT + 1)));
     RowMutations put2 =
         new RowMutations(rowKey.getBytes())
             .add(
                 Arrays.asList(
-                    HbaseMutationBuilder.createPut(
+                    HbaseUtils.HbaseMutationBuilder.createPut(
                         rowKey, colFamily, colQualifier, value2, timeT + 2)));
 
     pipeline

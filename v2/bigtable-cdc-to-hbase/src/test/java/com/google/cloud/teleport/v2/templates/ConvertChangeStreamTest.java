@@ -15,24 +15,24 @@
  */
 package com.google.cloud.teleport.v2.templates;
 
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.cbtQualifier;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.colFamily;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.colFamily2;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.colQualifier;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.colQualifier2;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.hbaseQualifier;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.rowKey;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.rowKey2;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.timeT;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.value;
-import static com.google.cloud.teleport.v2.templates.constants.TestConstants.value2;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.cbtQualifier;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.colFamily;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.colFamily2;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.colQualifier;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.colQualifier2;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.hbaseQualifier;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.rowKey;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.rowKey2;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.timeT;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.value;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.value2;
 
 import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutation;
 import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutationBuilder;
+import com.google.cloud.teleport.v2.templates.utils.HbaseUtils;
 import com.google.cloud.teleport.v2.templates.transforms.ConvertChangeStream;
 import com.google.cloud.teleport.v2.templates.utils.HashUtils;
 import com.google.cloud.teleport.v2.templates.utils.HashUtils.HashHbaseRowMutations;
-import com.google.cloud.teleport.v2.templates.utils.MutationBuilderUtils.HbaseMutationBuilder;
 import com.google.cloud.teleport.v2.templates.utils.RowMutationsCoder;
 import com.google.protobuf.ByteString;
 import java.util.Arrays;
@@ -87,8 +87,8 @@ public class ConvertChangeStreamTest {
 
     List<Mutation> expectedMutations =
         Arrays.asList(
-            HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
-            HbaseMutationBuilder.createPut(rowKey, colFamily2, colQualifier2, value2, timeT));
+            HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
+            HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily2, colQualifier2, value2, timeT));
 
     PAssert.that(output)
         .containsInAnyOrder(KV.of(rowKey, HashUtils.hashMutationList(expectedMutations)));
@@ -116,8 +116,8 @@ public class ConvertChangeStreamTest {
 
     List<Mutation> expectedMutations =
         Arrays.asList(
-            HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
-            HbaseMutationBuilder.createDelete(rowKey, colFamily2, colQualifier2, timeT));
+            HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
+            HbaseUtils.HbaseMutationBuilder.createDelete(rowKey, colFamily2, colQualifier2, timeT));
 
     PAssert.that(output)
         .containsInAnyOrder(KV.of(rowKey, HashUtils.hashMutationList(expectedMutations)));
@@ -143,7 +143,7 @@ public class ConvertChangeStreamTest {
     Long now = Time.now();
 
     List<Mutation> expectedMutations =
-        Arrays.asList(HbaseMutationBuilder.createDeleteFamily(rowKey, colFamily2, now));
+        Arrays.asList(HbaseUtils.HbaseMutationBuilder.createDeleteFamily(rowKey, colFamily2, now));
     PAssert.that(output)
         .containsInAnyOrder(KV.of(rowKey, HashUtils.hashMutationList(expectedMutations)));
     pipeline.run().waitUntilFinish();
@@ -181,15 +181,15 @@ public class ConvertChangeStreamTest {
 
     List<Mutation> rowMutations =
         Arrays.asList(
-            HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
-            HbaseMutationBuilder.createDelete(rowKey, colFamily, colQualifier, timeT),
-            HbaseMutationBuilder.createDeleteFamily(rowKey, colFamily, now));
+            HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
+            HbaseUtils.HbaseMutationBuilder.createDelete(rowKey, colFamily, colQualifier, timeT),
+            HbaseUtils.HbaseMutationBuilder.createDeleteFamily(rowKey, colFamily, now));
 
     List<Mutation> rowMutations2 =
         Arrays.asList(
-            HbaseMutationBuilder.createDelete(rowKey2, colFamily, colQualifier, timeT),
-            HbaseMutationBuilder.createDelete(rowKey2, colFamily2, colQualifier2, timeT),
-            HbaseMutationBuilder.createPut(rowKey2, colFamily2, colQualifier2, value, timeT));
+            HbaseUtils.HbaseMutationBuilder.createDelete(rowKey2, colFamily, colQualifier, timeT),
+            HbaseUtils.HbaseMutationBuilder.createDelete(rowKey2, colFamily2, colQualifier2, timeT),
+            HbaseUtils.HbaseMutationBuilder.createPut(rowKey2, colFamily2, colQualifier2, value, timeT));
     PAssert.that(output)
         .containsInAnyOrder(
             KV.of(rowKey, HashUtils.hashMutationList(rowMutations)),
@@ -221,10 +221,10 @@ public class ConvertChangeStreamTest {
 
     List<Mutation> expectedMutations =
         Arrays.asList(
-            HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
-            HbaseMutationBuilder.createPut(rowKey, colFamily2, colQualifier2, value2, timeT),
+            HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
+            HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily2, colQualifier2, value2, timeT),
             // Special mutation that denotes origin of replication.
-            HbaseMutationBuilder.createDelete(rowKey, colFamily2, cbtQualifier, 0L));
+            HbaseUtils.HbaseMutationBuilder.createDelete(rowKey, colFamily2, cbtQualifier, 0L));
 
     PAssert.that(output)
         .containsInAnyOrder(KV.of(rowKey, HashUtils.hashMutationList(expectedMutations)));
@@ -287,9 +287,9 @@ public class ConvertChangeStreamTest {
 
     List<Mutation> rowMutations =
         Arrays.asList(
-            HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
+            HbaseUtils.HbaseMutationBuilder.createPut(rowKey, colFamily, colQualifier, value, timeT),
             // Special mutation that denotes origin of replication.
-            HbaseMutationBuilder.createDelete(rowKey, colFamily, cbtQualifier, 0L));
+            HbaseUtils.HbaseMutationBuilder.createDelete(rowKey, colFamily, cbtQualifier, 0L));
 
     PAssert.that(output)
         .containsInAnyOrder(KV.of(rowKey, HashUtils.hashMutationList(rowMutations)));
