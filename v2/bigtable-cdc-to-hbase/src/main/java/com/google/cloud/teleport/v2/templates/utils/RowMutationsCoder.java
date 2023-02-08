@@ -34,11 +34,9 @@ import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.MutationProto.Mut
  * natively serializable.
  */
 public class RowMutationsCoder extends AtomicCoder<RowMutations> implements Serializable {
-  // Code stub for use in registrar.
-  // https://github.com/apache/beam/blob/master/sdks/java/io/hbase/src/main/java/org/apache/beam/sdk/io/hbase/HBaseCoderProviderRegistrar.java
   private static final RowMutationsCoder INSTANCE = new RowMutationsCoder();
 
-  RowMutationsCoder() {}
+  public RowMutationsCoder() {}
 
   public static RowMutationsCoder of() {
     return INSTANCE;

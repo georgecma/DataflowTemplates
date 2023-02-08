@@ -33,15 +33,14 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Utility functions to help assert equality between mutation lists for testing purposes.
- *
- * <p>RowMutations objects assert equality on rowkey only and does not guarantee that its mutations
- * are the same nor that they are in the same order. This class hashes a RowMutation object's
- * mutations so that two mutation lists can be compared for equality.
  */
 public class HashUtils {
 
   /**
-   * Hashes list of mutations into String, so lisst of mutations can be compared to other mutations.
+   * Hashes list of {@link Mutation} into String, by iterating through Mutation {@link Cell} and
+   * picking out relevant attributes for comparison.
+   *
+   * Different mutation types may have different hashing treatments.
    *
    * @param mutationList
    * @return list of mutation strings that can be compared to other hashed mutation lists.
@@ -91,7 +90,12 @@ public class HashUtils {
     return mutations;
   }
 
-  /** Utility transformation to split RowMutations object into <rowkey, mutationsHashList>. */
+  /**<p>{@link RowMutations} assert equality on rowkey only and does not guarantee that its mutations
+   * are the same nor that they are in the same order.
+   *
+   * This transform splits a RowMutations object into <rowkey String, List<MutationsToString> so that
+   * two RowMutations objects can be compared via {@link org.apache.beam.sdk.testing.PAssert}.
+   */
   public static class HashHbaseRowMutations
       extends PTransform<
           PCollection<KV<byte[], RowMutations>>, PCollection<KV<String, List<String>>>> {
@@ -105,7 +109,6 @@ public class HashUtils {
     }
   }
 
-  /** Utility function that applies mutation list hash to elements. */
   static class HashHbaseRowMutationsFn
       extends DoFn<KV<byte[], RowMutations>, KV<String, List<String>>> {
     private final Logger log = LoggerFactory.getLogger(HashHbaseRowMutationsFn.class);
@@ -117,18 +120,13 @@ public class HashUtils {
       RowMutations rowMutations = c.element().getValue();
 
       if (!new String(c.element().getKey()).equals(new String(rowMutations.getRow()))) {
-        throw new Exception(
-            "error during hash row check:"
-                + new String(c.element().getKey())
-                + "!="
-                + new String(rowMutations.getRow())
-                + ".");
+        throw new Exception("Hash error, KV rowkey is not the same as rowMutations rowkey");
       }
 
       c.output(
           KV.of(
               new String(rowMutations.getRow()),
-              hashMutationList(rowMutations.getMutations()) // mutations.getMutations())
+              hashMutationList(rowMutations.getMutations())
               ));
     }
   }
