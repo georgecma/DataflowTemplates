@@ -44,7 +44,10 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Applies Hbase RowMutation objects to an Hbase table. */
+/** Writes Hbase RowMutations to a Hbase table.
+ *  Based off of {@link org.apache.beam.sdk.io.hbase.HBaseIO}.
+ *  HbaseIO applies Mutations, this class applies RowMutations objects.
+ */
 public class HbaseRowMutationIO {
 
   private static final Logger LOG = LoggerFactory.getLogger(HbaseRowMutationIO.class);
@@ -182,11 +185,9 @@ public class HbaseRowMutationIO {
         RowMutations mutations = c.element().getValue();
 
         // TODO: we use MutateRow(RowMutations). Figure out if it'd be more efficient batch writing
-        // here
-        //  with e.g. BufferedMutator.mutate(Mutations) after grouping by rowkey.
+        //  here with e.g. BufferedMutator.mutate(Mutations) after grouping by rowkey.
         table.mutateRow(mutations);
         Metrics.counter("HbaseRepl", "mutations_written_to_hbase").inc();
-        ++recordsWritten;
       }
 
       @Teardown
@@ -205,9 +206,6 @@ public class HbaseRowMutationIO {
       public void populateDisplayData(DisplayData.Builder builder) {
         builder.delegate(WriteRowMutations.this);
       }
-
-      private long recordsWritten;
-
       private transient Connection connection;
       private transient Table table;
     }

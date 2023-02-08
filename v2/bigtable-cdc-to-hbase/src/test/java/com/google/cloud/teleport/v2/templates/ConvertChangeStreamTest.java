@@ -28,10 +28,10 @@ import static com.google.cloud.teleport.v2.templates.constants.TestConstants.val
 import static com.google.cloud.teleport.v2.templates.constants.TestConstants.value2;
 
 import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutation;
+import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutationBuilder;
 import com.google.cloud.teleport.v2.templates.transforms.ConvertChangeStream;
 import com.google.cloud.teleport.v2.templates.utils.HashUtils;
 import com.google.cloud.teleport.v2.templates.utils.HashUtils.HashHbaseRowMutations;
-import com.google.cloud.teleport.v2.templates.utils.MutationBuilderUtils.ChangeStreamMutationBuilder;
 import com.google.cloud.teleport.v2.templates.utils.MutationBuilderUtils.HbaseMutationBuilder;
 import com.google.cloud.teleport.v2.templates.utils.RowMutationsCoder;
 import com.google.protobuf.ByteString;

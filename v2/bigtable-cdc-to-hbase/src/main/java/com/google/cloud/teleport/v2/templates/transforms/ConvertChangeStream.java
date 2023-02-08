@@ -122,20 +122,16 @@ public class ConvertChangeStream {
 
     @ProcessElement
     public void processElement(ProcessContext c) throws Exception {
-
       ChangeStreamMutation mutation = c.element().getValue();
-
       // Skip element if it was replicated from HBase.
       if (twoWayReplication && isHbaseReplicated(mutation, hbaseQualifier)) {
         return;
       }
       RowMutations hbaseMutations = convertToRowMutations(mutation);
-
       // Append origin information to mutations.
       if (twoWayReplication) {
         appendSourceTagToMutations(hbaseMutations, cbtQualifier);
       }
-
       c.output(KV.of(hbaseMutations.getRow(), hbaseMutations));
     }
 
@@ -254,7 +250,7 @@ public class ConvertChangeStream {
       // Convert timestamp to milliseconds
       long ts = convertMicroToMilliseconds(deleteCells.getTimestampRange().getEnd());
       // If RowMutation is created without a timestamp,then the timestamp end bound becomes null and unbounded.
-      // TODO: see if this is ever an issue? Cloud allows it.
+      // TODO: see if timestamp range will ever be unbounded or will always have a timestamp
       if (deleteCells.getTimestampRange() == TimestampRange.unbounded()) {
         ts = Time.now();
       }

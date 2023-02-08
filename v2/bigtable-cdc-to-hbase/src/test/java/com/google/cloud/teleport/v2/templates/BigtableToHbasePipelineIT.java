@@ -78,17 +78,13 @@ public class BigtableToHbasePipelineIT extends TemplateTestBase {
       args.put(entry[0], entry[1]);
     }
 
-    // Create pipeline options from some args
-    // Note that we set start and end times in actual test run
+    // Create some pipeline options from args.
     pipelineOptions = PipelineOptionsFactory.create().as(BigtableToHbasePipelineOptions.class);
     // Set bigtable change stream options
     pipelineOptions.setBigtableProjectId(args.get("bigtableProjectId"));
     pipelineOptions.setInstanceId(args.get("instanceId"));
     pipelineOptions.setTableId(args.get("tableId"));
     pipelineOptions.setAppProfileId(args.get("appProfileId"));
-    // Set pipeline options
-    pipelineOptions.setStreaming(true);
-    pipelineOptions.setExperiments(Arrays.asList("use_runner_v2"));
 
     // Create Hbase cluster
     hBaseTestingUtility = new HBaseTestingUtility();
