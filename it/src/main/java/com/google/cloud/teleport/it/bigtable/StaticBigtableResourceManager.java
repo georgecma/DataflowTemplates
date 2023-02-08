@@ -142,17 +142,21 @@ public class StaticBigtableResourceManager implements BigtableResourceManager {
   }
 
   @Override
-  public synchronized void createTable(String newTableId, BigtableTableSpec spec) {
+  public synchronized void createTable(String newTableId, BigtableTableSpec spec)
+      throws BigtableResourceManagerException {
     if (!Objects.equals(tableId, newTableId)) {
-      LOG.warn(
-          "Test tries to create table named differently from static tableId: {}.{}",
-          instanceId,
-          this.tableId);
+      throw new BigtableResourceManagerException(
+          String.format(
+              "Test tries to create table named differently from static tableId: {}.{}",
+              instanceId,
+              this.tableId),
+          new Throwable("Table creation error"));
     }
   }
 
   @Override
-  public synchronized void createTable(String tableId, Iterable<String> columnFamilies) {
+  public synchronized void createTable(String tableId, Iterable<String> columnFamilies)
+      throws BigtableResourceManagerException {
     BigtableTableSpec spec = new BigtableTableSpec();
     spec.setColumnFamilies(columnFamilies);
     spec.setMaxAge(Duration.ofHours(1));
@@ -161,7 +165,8 @@ public class StaticBigtableResourceManager implements BigtableResourceManager {
 
   @Override
   public synchronized void createTable(
-      String tableId, Iterable<String> columnFamilies, Duration maxAge) {
+      String tableId, Iterable<String> columnFamilies, Duration maxAge)
+      throws BigtableResourceManagerException {
     BigtableTableSpec spec = new BigtableTableSpec();
     spec.setColumnFamilies(columnFamilies);
     spec.setMaxAge(maxAge);

@@ -45,9 +45,10 @@ public interface BigtableResourceManager {
    * @param columnFamilies A collection of column family names for the table.
    * @throws BigtableResourceManagerException if there is an error creating the table in Bigtable.
    */
-  void createTable(String tableId, Iterable<String> columnFamilies);
+  void createTable(String tableId, Iterable<String> columnFamilies)
+      throws BigtableResourceManagerException;
 
-  void createTable(String tableId, BigtableTableSpec spec);
+  void createTable(String tableId, BigtableTableSpec spec) throws BigtableResourceManagerException;
 
   /**
    * Creates a table within the current instance given a table ID and a collection of column family
@@ -63,7 +64,8 @@ public interface BigtableResourceManager {
    * @param maxAge Sets the maximum age the columns can persist before being garbage collected.
    * @throws BigtableResourceManagerException if there is an error creating the table in Bigtable.
    */
-  void createTable(String tableId, Iterable<String> columnFamilies, Duration maxAge);
+  void createTable(String tableId, Iterable<String> columnFamilies, Duration maxAge)
+      throws BigtableResourceManagerException;
 
   /**
    * Writes a given row into a table. This method requires {@link

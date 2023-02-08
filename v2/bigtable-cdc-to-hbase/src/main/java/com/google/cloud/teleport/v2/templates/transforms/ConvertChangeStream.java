@@ -22,6 +22,7 @@ import com.google.cloud.bigtable.data.v2.models.DeleteCells;
 import com.google.cloud.bigtable.data.v2.models.DeleteFamily;
 import com.google.cloud.bigtable.data.v2.models.Entry;
 import com.google.cloud.bigtable.data.v2.models.Range.BoundType;
+import com.google.cloud.bigtable.data.v2.models.Range.TimestampRange;
 import com.google.cloud.bigtable.data.v2.models.SetCell;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
@@ -211,27 +212,25 @@ public class ConvertChangeStream {
      */
     private static RowMutations convertToRowMutations(ChangeStreamMutation mutation)
         throws Exception {
-      byte[] hbaseRowKey = mutation.getRowKey().toByteArray();
-      RowMutations hbaseMutations = new RowMutations(hbaseRowKey);
-
-      for (Entry entry : mutation.getEntries()) {
-        if (entry instanceof SetCell) {
-
-          hbaseMutations.add(convertSetCell(hbaseRowKey, entry));
-
-        } else if (entry instanceof DeleteCells) {
-
-          hbaseMutations.add(convertDeleteCells(hbaseRowKey, entry));
-
-        } else if (entry instanceof DeleteFamily) {
-
-          hbaseMutations.add(convertDeleteFamily(hbaseRowKey, entry));
-        }
+      // Check for empty change stream mutation, should never happen.
+      if (mutation.getEntries().size() == 0) {
+        throw new Exception("Change stream entries list is empty.");
       }
 
-      if (hbaseMutations.getMutations().size() == 0) {
-        throw new Exception(
-            "hbase mutations object null, should not be possible because all mutations are supported");
+      byte[] hbaseRowKey = mutation.getRowKey().toByteArray();
+      RowMutations hbaseMutations = new RowMutations(hbaseRowKey);
+      // Check and convert entries to hbase mutations
+      for (Entry entry : mutation.getEntries()) {
+        if (entry instanceof SetCell) {
+          hbaseMutations.add(convertSetCell(hbaseRowKey, entry));
+        } else if (entry instanceof DeleteCells) {
+          hbaseMutations.add(convertDeleteCells(hbaseRowKey, entry));
+        } else if (entry instanceof DeleteFamily) {
+          hbaseMutations.add(convertDeleteFamily(hbaseRowKey, entry));
+        } else {
+          // All change stream entry types should be supported.
+          throw new Exception("Change stream entry is not a supported type for conversion.");
+        }
       }
       return hbaseMutations;
     }
@@ -254,11 +253,9 @@ public class ConvertChangeStream {
 
       // Convert timestamp to milliseconds
       long ts = convertMicroToMilliseconds(deleteCells.getTimestampRange().getEnd());
-      // If RowMutation is created manually without a timestamp,then the timestamp end bound
-      // becomes null and unbounded.
-      // TODO: will this scenario ever happen in practice? If it will then we cast to now
-      //  Else we remove this and change integration test to always create with timestamp
-      if (deleteCells.getTimestampRange().getEndBound() == BoundType.UNBOUNDED) {
+      // If RowMutation is created without a timestamp,then the timestamp end bound becomes null and unbounded.
+      // TODO: see if this is ever an issue? Cloud allows it.
+      if (deleteCells.getTimestampRange() == TimestampRange.unbounded()) {
         ts = Time.now();
       }
 
@@ -277,9 +274,9 @@ public class ConvertChangeStream {
       // deletefamily to Hbase deletefamily with timestamp now().
       long now = Time.now();
 
-      DeleteFamily deleteCells = (DeleteFamily) entry;
+      DeleteFamily deleteFamily = (DeleteFamily) entry;
       Delete delete = new Delete(hbaseRowKey, now);
-      delete.addFamily(convertUtf8String(deleteCells.getFamilyName()));
+      delete.addFamily(convertUtf8String(deleteFamily.getFamilyName()));
 
       return delete;
     }
