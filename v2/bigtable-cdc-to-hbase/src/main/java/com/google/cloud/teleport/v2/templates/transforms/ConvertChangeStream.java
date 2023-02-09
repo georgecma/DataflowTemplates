@@ -258,6 +258,8 @@ public class ConvertChangeStream {
 
       Delete delete = new Delete(hbaseRowKey, ts);
       // Delete all versions of this column, which corresponds to Bigtable delete behavior.
+      // TODO: it is possible for CBT to delete single versions of column.
+      //  differentiate between addColumn and AddColumns
       delete.addColumns(
           convertUtf8String(deleteCells.getFamilyName()), deleteCells.getQualifier().toByteArray());
 
