@@ -114,16 +114,16 @@ public class BigtableToHbasePipeline {
     void setHbaseClusterDistributed(String hbaseClusterDistributed);
 
     @TemplateParameter.Boolean(
-        description = "Two way replication",
-        helpText = "Whether two-way replication between hbase and bigtable is enabled")
+        description = "Bidirectional replication",
+        helpText = "Whether bidirectional replication between hbase and bigtable is enabled")
     @Default.Boolean(true)
-    boolean getTwoWayReplicationEnabled();
+    boolean getBidirectionalReplicationEnabled();
 
-    void setTwoWayReplicationEnabled(boolean twoWayReplicationEnabled);
+    void setBidirectionalReplicationEnabled(boolean bidirectionalReplicationEnabled);
 
     @TemplateParameter.Text(
         description = "Source CBT qualifier",
-        helpText = "Two way replication source CBT qualifier")
+        helpText = "Bidirectional replication source CBT qualifier")
     @Default.String("SOURCE_CBT")
     String getCbtQualifier();
 
@@ -131,7 +131,7 @@ public class BigtableToHbasePipeline {
 
     @TemplateParameter.Text(
         description = "Source Hbase qualifier",
-        helpText = "Two way replication source Hbase qualifier")
+        helpText = "Bidirectional replication source Hbase qualifier")
     @Default.String("SOURCE_HBASE")
     String getHbaseQualifier();
 
@@ -207,8 +207,8 @@ public class BigtableToHbasePipeline {
         .apply(
             "Convert CDC mutation to HBase mutation",
             ConvertChangeStream.convertChangeStreamMutation()
-                .withTwoWayReplication(
-                    pipelineOptions.getTwoWayReplicationEnabled(),
+                .withBidirectionalReplication(
+                    pipelineOptions.getBidirectionalReplicationEnabled(),
                     pipelineOptions.getCbtQualifier(),
                     pipelineOptions.getHbaseQualifier()))
         .apply(
@@ -216,7 +216,6 @@ public class BigtableToHbasePipeline {
             HbaseRowMutationIO.writeRowMutations()
                 .withConfiguration(hbaseConf)
                 .withTableId(pipelineOptions.getTableId()));
-
     return pipeline.run();
   }
 

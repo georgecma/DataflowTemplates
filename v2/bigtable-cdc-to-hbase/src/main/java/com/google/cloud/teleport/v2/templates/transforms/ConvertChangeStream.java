@@ -64,14 +64,14 @@ public class ConvertChangeStream {
           PCollection<KV<byte[], RowMutations>>> {
 
     /**
-     * Call converter with this function with the necessary params to enable two-way replication
-     * logic.
+     * Call converter with this function with the necessary params to enable bidirectional
+     * replication logic.
      *
-     * @param enabled whether two-way replication logic is enabled
+     * @param enabled whether bidirectional replication logic is enabled
      * @param cbtQualifierInput
      * @param hbaseQualifierInput
      */
-    public ConvertChangeStreamMutation withTwoWayReplication(
+    public ConvertChangeStreamMutation withBidirectionalReplication(
         boolean enabled, String cbtQualifierInput, String hbaseQualifierInput) {
       return new ConvertChangeStreamMutation(enabled, cbtQualifierInput, hbaseQualifierInput);
     }
@@ -84,12 +84,12 @@ public class ConvertChangeStream {
         checkArgument(cbtQualifierInput != null, "cbt qualifier cannot be null.");
         checkArgument(hbaseQualifierInput != null, "hbase qualifier cannot be null.");
       }
-      twoWayReplication = enabled;
+      bidirectionalReplication = enabled;
       cbtQualifier = cbtQualifierInput;
       hbaseQualifier = hbaseQualifierInput;
     }
 
-    private boolean twoWayReplication;
+    private boolean bidirectionalReplication;
     private String cbtQualifier;
     private String hbaseQualifier;
 
@@ -98,7 +98,8 @@ public class ConvertChangeStream {
         PCollection<KV<ByteString, ChangeStreamMutation>> input) {
       return input.apply(
           ParDo.of(
-              new ConvertChangeStreamMutationFn(twoWayReplication, cbtQualifier, hbaseQualifier)));
+              new ConvertChangeStreamMutationFn(
+                  bidirectionalReplication, cbtQualifier, hbaseQualifier)));
     }
   }
 
@@ -110,11 +111,13 @@ public class ConvertChangeStream {
 
     private String hbaseQualifier;
     private String cbtQualifier;
-    private boolean twoWayReplication;
+    private boolean bidirectionalReplicationEnabled;
 
     public ConvertChangeStreamMutationFn(
-        boolean twoWayReplicationFlag, String cbtQualifierInput, String hbaseQualifierInput) {
-      twoWayReplication = twoWayReplicationFlag;
+        boolean bidirectionalReplicationEnabledFlag,
+        String cbtQualifierInput,
+        String hbaseQualifierInput) {
+      bidirectionalReplicationEnabled = bidirectionalReplicationEnabledFlag;
       hbaseQualifier = hbaseQualifierInput;
       cbtQualifier = cbtQualifierInput;
     }
@@ -123,12 +126,12 @@ public class ConvertChangeStream {
     public void processElement(ProcessContext c) throws Exception {
       ChangeStreamMutation mutation = c.element().getValue();
       // Skip element if it was replicated from HBase.
-      if (twoWayReplication && isHbaseReplicated(mutation, hbaseQualifier)) {
+      if (bidirectionalReplicationEnabled && isHbaseReplicated(mutation, hbaseQualifier)) {
         return;
       }
       RowMutations hbaseMutations = convertToRowMutations(mutation);
       // Append origin information to mutations.
-      if (twoWayReplication) {
+      if (bidirectionalReplicationEnabled) {
         appendSourceTagToMutations(hbaseMutations, cbtQualifier);
       }
       c.output(KV.of(hbaseMutations.getRow(), hbaseMutations));

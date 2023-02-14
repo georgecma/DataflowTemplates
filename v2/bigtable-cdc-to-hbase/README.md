@@ -33,7 +33,7 @@ export HBASE_ROOT_DIR=<hbase-root-dir, e.g. hdfs://my-server/hbase>
 
 # optional parameters, modify as needed
 export HBASE_DISTRIBUTED=true
-export TWO_WAY_REPLICATION=true
+export BIDIRECTIONAL_REPLICATION=true
 export CBT_QUALIFIER=SOURCE_CBT
 export HBASE_QUALIFIER=SOURCE_HBASE
 ```
@@ -48,7 +48,7 @@ mvn clean package -PtemplatesRun \
   -DbucketName=$GCS_BUCKET_NAME \
   -Dregion=$REGION \
   -DtemplateName="bigtable-cdc-to-hbase" \
-  -Dparameters="bigtableProjectId=$PROJECT,instanceId=$INSTANCE,tableId=$TABLE,appProfileId=$APP_PROFILE,hbaseZookeeperQuorum=$ZOOKEEPER_QUORUM,hbaseRootDir=$HBASE_ROOT_DIR,hbaseClusterDistributed=$HBASE_DISTRIBUTED,twoWayReplicationEnabled=$TWO_WAY_REPLICATION,cbtQualifier=$CBT_QUALIFIER,hbaseQualifier=$HBASE_QUALIFIER" \
+  -Dparameters="bigtableProjectId=$PROJECT,instanceId=$INSTANCE,tableId=$TABLE,appProfileId=$APP_PROFILE,hbaseZookeeperQuorum=$ZOOKEEPER_QUORUM,hbaseRootDir=$HBASE_ROOT_DIR,hbaseClusterDistributed=$HBASE_DISTRIBUTED,bidirectionalReplicationEnabled=$BIDIRECTIONAL_REPLICATION,cbtQualifier=$CBT_QUALIFIER,hbaseQualifier=$HBASE_QUALIFIER" \
   -pl v2/bigtable-cdc-to-hbase
 ```
 ### Testing Template
@@ -67,7 +67,7 @@ mvn clean verify -PtemplatesIntegrationTests \
   -DbucketName=$GCS_BUCKET_NAME \
   -Dregion=$REGION \
   -DtemplateName="bigtable-cdc-to-hbase" \
-  -Dparameters="bigtableProjectId=$PROJECT,instanceId=$INSTANCE,tableId=$TABLE,appProfileId=$APP_PROFILE,hbaseZookeeperQuorum=$ZOOKEEPER_QUORUM,hbaseRootDir=$HBASE_ROOT_DIR,hbaseClusterDistributed=$HBASE_DISTRIBUTED,twoWayReplicationEnabled=$TWO_WAY_REPLICATION,cbtQualifier=$CBT_QUALIFIER,hbaseQualifier=$HBASE_QUALIFIER" \
+  -Dparameters="bigtableProjectId=$PROJECT,instanceId=$INSTANCE,tableId=$TABLE,appProfileId=$APP_PROFILE,hbaseZookeeperQuorum=$ZOOKEEPER_QUORUM,hbaseRootDir=$HBASE_ROOT_DIR,hbaseClusterDistributed=$HBASE_DISTRIBUTED,bidirectionalReplicationEnabled=$BIDIRECTIONAL_REPLICATION,cbtQualifier=$CBT_QUALIFIER,hbaseQualifier=$HBASE_QUALIFIER" \
   -pl v2/bigtable-cdc-to-hbase \
   -Dproject=$PROJECT \
   -DstageBucket=$GCS_BUCKET_NAME \

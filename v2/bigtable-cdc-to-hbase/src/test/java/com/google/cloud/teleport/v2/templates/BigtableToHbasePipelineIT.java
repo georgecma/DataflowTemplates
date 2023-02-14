@@ -83,6 +83,9 @@ public class BigtableToHbasePipelineIT extends TemplateTestBase {
     pipelineOptions.setInstanceId(args.get("instanceId"));
     pipelineOptions.setTableId(args.get("tableId"));
     pipelineOptions.setAppProfileId(args.get("appProfileId"));
+    pipelineOptions.setBidirectionalReplicationEnabled(
+        Boolean.parseBoolean(args.get("bidirectionalReplicationEnabled")));
+
 
     // Create Hbase cluster
     hBaseTestingUtility = new HBaseTestingUtility();

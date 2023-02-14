@@ -30,7 +30,7 @@ public class TestConstants {
   public static String colQualifier2 = "col2";
   public static String value2 = "long-value-2";
 
-  // Variables for two-way replication.
+  // Variables for bidirectional replication.
   public static String cbtQualifier = "SOURCE_CBT";
   public static String hbaseQualifier = "SOURCE_HBASE";
 

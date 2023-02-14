@@ -206,7 +206,7 @@ public class ConvertChangeStreamTest {
   }
 
   @Test
-  public void addsSpecialMutationInTwoWayReplication() throws Exception {
+  public void addsSpecialMutationInBidirectionalReplication() throws Exception {
     ChangeStreamMutation setCellMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
@@ -221,7 +221,7 @@ public class ConvertChangeStreamTest {
             .apply(
                 "Convert change stream mutations to hbase mutations",
                 ConvertChangeStream.convertChangeStreamMutation()
-                    .withTwoWayReplication(true, cbtQualifier, hbaseQualifier))
+                    .withBidirectionalReplication(true, cbtQualifier, hbaseQualifier))
             .apply("Hash hbase mutation for comparison purposes", new HashHbaseRowMutations());
 
     List<Mutation> expectedMutations =
@@ -255,7 +255,7 @@ public class ConvertChangeStreamTest {
             .apply(
                 "Convert change stream mutations to hbase mutations",
                 ConvertChangeStream.convertChangeStreamMutation()
-                    .withTwoWayReplication(true, cbtQualifier, hbaseQualifier))
+                    .withBidirectionalReplication(true, cbtQualifier, hbaseQualifier))
             .apply("Hash hbase mutation for comparison purposes", new HashHbaseRowMutations());
 
     PAssert.that(output).empty();
@@ -264,7 +264,7 @@ public class ConvertChangeStreamTest {
   }
 
   @Test
-  public void filtersAndReplicatesMultipleRowsWithTwoWayReplication() throws Exception {
+  public void filtersAndReplicatesMultipleRowsWithBidirectionalReplication() throws Exception {
     ChangeStreamMutation rowMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
@@ -286,7 +286,7 @@ public class ConvertChangeStreamTest {
             .apply(
                 "Convert change stream mutations to hbase mutations",
                 ConvertChangeStream.convertChangeStreamMutation()
-                    .withTwoWayReplication(true, cbtQualifier, hbaseQualifier))
+                    .withBidirectionalReplication(true, cbtQualifier, hbaseQualifier))
             .apply("Hash hbase mutation for comparison purposes", new HashHbaseRowMutations());
 
     List<Mutation> rowMutations =
