@@ -16,7 +16,6 @@
 package com.google.cloud.teleport.v2.templates.utils;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
@@ -29,6 +28,7 @@ import org.apache.hadoop.hbase.CellUtil;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.RowMutations;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,20 +36,18 @@ import org.slf4j.LoggerFactory;
 public class HashUtils {
 
   /**
-   * Returns true if two {@link RowMutations} objects are equal by rowkey and list of {@link
-   * Mutation}.
+   * Asserts two {@link RowMutations} objects are equal by rowkey and list of {@link Mutation}.
    *
    * @param rowMutationA
    * @param rowMutationB
    * @throws Exception if hash function fails
    */
-  public static boolean rowMutationsEquals(RowMutations rowMutationA, RowMutations rowMutationB)
+  public static void assertRowMutationsEquals(RowMutations rowMutationA, RowMutations rowMutationB)
       throws Exception {
-    boolean rowKeyEquals = Arrays.equals(rowMutationA.getRow(), rowMutationB.getRow());
-    boolean mutationsEquals =
-        hashMutationList(rowMutationA.getMutations())
-            .equals(hashMutationList(rowMutationB.getMutations()));
-    return rowKeyEquals && mutationsEquals;
+    Assert.assertEquals(new String(rowMutationA.getRow()), new String(rowMutationB.getRow()));
+    Assert.assertEquals(
+        hashMutationList(rowMutationA.getMutations()),
+        hashMutationList(rowMutationB.getMutations()));
   }
 
   /**
@@ -100,7 +98,7 @@ public class HashUtils {
         cells.add(cellHash);
       }
 
-      mutations.add(String.join("; ", cells));
+      mutations.add(String.join(" > ", cells));
     }
 
     return mutations;

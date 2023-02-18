@@ -26,13 +26,13 @@ import static com.google.cloud.teleport.v2.templates.utils.TestConstants.value2;
 
 import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutation;
 import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutationBuilder;
-import com.google.cloud.teleport.v2.templates.transforms.ConvertChangeStream.ConvertChangeStreamMutationFn;
 import com.google.cloud.teleport.v2.templates.utils.HashUtils;
-import com.google.cloud.teleport.v2.templates.utils.HbaseUtils;
+import com.google.cloud.teleport.v2.templates.utils.RowMutationsBuilder;
 import java.util.Arrays;
+import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.RowMutations;
 import org.apache.hadoop.util.Time;
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -42,7 +42,7 @@ import org.junit.runners.JUnit4;
  * individual convert functions.
  */
 @RunWith(JUnit4.class)
-public class ConvertChangeStreamUnitTest {
+public class RowMutationsBuilderTest {
 
   @Test
   public void convertsSetCellToHbasePut() throws Exception {
@@ -52,19 +52,22 @@ public class ConvertChangeStreamUnitTest {
             .setCell(colFamily2, colQualifier2, value2, timeT * 1000)
             .build();
 
-    RowMutations convertedMutations =
-        ConvertChangeStreamMutationFn.convertToRowMutations(changeStreamMutation);
+    RowMutations convertedMutations = RowMutationsBuilder.buildRowMutations(changeStreamMutation);
 
     RowMutations expectedMutations =
         new RowMutations(rowKey.getBytes())
             .add(
                 Arrays.asList(
-                    HbaseUtils.HbaseMutationBuilder.createPut(
-                        rowKey, colFamily, colQualifier, value, timeT),
-                    HbaseUtils.HbaseMutationBuilder.createPut(
-                        rowKey, colFamily2, colQualifier2, value2, timeT)));
+                    new Put(rowKey.getBytes())
+                        .addColumn(
+                            colFamily.getBytes(), colQualifier.getBytes(), timeT, value.getBytes())
+                        .addColumn(
+                            colFamily2.getBytes(),
+                            colQualifier2.getBytes(),
+                            timeT,
+                            value2.getBytes())));
 
-    Assert.assertTrue(HashUtils.rowMutationsEquals(convertedMutations, expectedMutations));
+    HashUtils.assertRowMutationsEquals(convertedMutations, expectedMutations);
   }
 
   @Test
@@ -75,18 +78,18 @@ public class ConvertChangeStreamUnitTest {
             .deleteCells(colFamily2, colQualifier2, timeT, timeT * 1000)
             .build();
 
-    RowMutations convertedMutations =
-        ConvertChangeStreamMutationFn.convertToRowMutations(changeStreamMutation);
+    RowMutations convertedMutations = RowMutationsBuilder.buildRowMutations(changeStreamMutation);
 
     RowMutations expectedMutations =
         new RowMutations(rowKey.getBytes())
             .add(
                 Arrays.asList(
-                    HbaseUtils.HbaseMutationBuilder.createPut(
-                        rowKey, colFamily, colQualifier, value, timeT),
-                    HbaseUtils.HbaseMutationBuilder.createDelete(
-                        rowKey, colFamily2, colQualifier2, timeT)));
-    Assert.assertTrue(HashUtils.rowMutationsEquals(convertedMutations, expectedMutations));
+                    new Put(rowKey.getBytes())
+                        .addColumn(
+                            colFamily.getBytes(), colQualifier.getBytes(), timeT, value.getBytes()),
+                    new Delete(rowKey.getBytes())
+                        .addColumns(colFamily2.getBytes(), colQualifier2.getBytes(), timeT)));
+    HashUtils.assertRowMutationsEquals(convertedMutations, expectedMutations);
   }
 
   @Test
@@ -98,8 +101,7 @@ public class ConvertChangeStreamUnitTest {
             .deleteFamily(colFamily2)
             .build();
 
-    RowMutations convertedMutations =
-        ConvertChangeStreamMutationFn.convertToRowMutations(changeStreamMutation);
+    RowMutations convertedMutations = RowMutationsBuilder.buildRowMutations(changeStreamMutation);
 
     // Note that this timestamp is a placeholder and not compared by hash function.
     // DeleteFamily change stream entries are enriched by a Time.now() timestamp
@@ -110,12 +112,13 @@ public class ConvertChangeStreamUnitTest {
         new RowMutations(rowKey.getBytes())
             .add(
                 Arrays.asList(
-                    HbaseUtils.HbaseMutationBuilder.createPut(
-                        rowKey, colFamily, colQualifier, value, timeT),
-                    HbaseUtils.HbaseMutationBuilder.createDelete(
-                        rowKey, colFamily2, colQualifier2, timeT),
-                    HbaseUtils.HbaseMutationBuilder.createDeleteFamily(rowKey, colFamily2, now)));
+                    new Put(rowKey.getBytes())
+                        .addColumn(
+                            colFamily.getBytes(), colQualifier.getBytes(), timeT, value.getBytes()),
+                    new Delete(rowKey.getBytes())
+                        // .addColumns(colFamily2.getBytes(),colQualifier2.getBytes(), timeT)
+                        .addFamily(colFamily2.getBytes(), now)));
 
-    Assert.assertTrue(HashUtils.rowMutationsEquals(convertedMutations, expectedMutations));
+    HashUtils.assertRowMutationsEquals(convertedMutations, expectedMutations);
   }
 }

@@ -21,6 +21,7 @@ public class TestConstants {
   public static long timeT = 123456000;
 
   public static String rowKey = "row-key-1";
+
   public static String colFamily = "cf1";
   public static String colQualifier = "col1";
   public static String value = "val-1";

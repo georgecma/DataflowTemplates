@@ -18,6 +18,7 @@ package com.google.cloud.teleport.v2.templates;
 import static com.google.cloud.teleport.v2.templates.utils.TestConstants.colFamily;
 import static com.google.cloud.teleport.v2.templates.utils.TestConstants.colQualifier;
 import static com.google.cloud.teleport.v2.templates.utils.TestConstants.rowKey;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.rowKey2;
 import static com.google.cloud.teleport.v2.templates.utils.TestConstants.value;
 
 import com.google.cloud.Timestamp;
@@ -61,6 +62,8 @@ public class BigtableToHbasePipelineIT extends TemplateTestBase {
   private static HBaseTestingUtility hBaseTestingUtility;
   private static Table hbaseTable;
   private static StaticBigtableResourceManager bigtableResourceManager;
+  private static String cbtQualifier;
+  private static String hbaseQualifier;
 
   @BeforeClass
   public static void setUpCluster() throws Exception {
@@ -75,17 +78,21 @@ public class BigtableToHbasePipelineIT extends TemplateTestBase {
       String[] entry = pair.split("=");
       args.put(entry[0], entry[1]);
     }
+    hbaseQualifier = args.get("hbaseQualifier");
+    cbtQualifier = args.get("cbtQualifier");
 
-    // Create some pipeline options from args.
+    // Create some pipeline options from args
     pipelineOptions = PipelineOptionsFactory.create().as(BigtableToHbasePipelineOptions.class);
     // Set bigtable change stream options
     pipelineOptions.setBigtableProjectId(args.get("bigtableProjectId"));
     pipelineOptions.setInstanceId(args.get("instanceId"));
     pipelineOptions.setTableId(args.get("tableId"));
     pipelineOptions.setAppProfileId(args.get("appProfileId"));
+    // Set bidirectional replication options
     pipelineOptions.setBidirectionalReplicationEnabled(
         Boolean.parseBoolean(args.get("bidirectionalReplicationEnabled")));
-
+    pipelineOptions.setCbtQualifier(cbtQualifier);
+    pipelineOptions.setHbaseQualifier(hbaseQualifier);
 
     // Create Hbase cluster
     hBaseTestingUtility = new HBaseTestingUtility();
@@ -185,5 +192,33 @@ public class BigtableToHbasePipelineIT extends TemplateTestBase {
     }
 
     Assert.assertTrue(HbaseUtils.getRowResult(hbaseTable, rowKey).isEmpty());
+  }
+
+  @Test
+  public void testBidirectionalReplicationFiltersEntries() throws Exception {
+    // Write to Bigtable.
+    RowMutation setCell =
+        RowMutation.create(pipelineOptions.getTableId(), rowKey)
+            .setCell(colFamily, colQualifier, value);
+    // Mimic Hbase-replicated entry that should be filtered out
+    RowMutation setCellToBeFiltered =
+        RowMutation.create(pipelineOptions.getTableId(), rowKey2)
+            .setCell(colFamily, colQualifier, value)
+            .deleteCells(colFamily, hbaseQualifier);
+    bigtableResourceManager.write(setCell);
+    bigtableResourceManager.write(setCellToBeFiltered);
+
+    PipelineResult pipelineResult =
+        BigtableToHbasePipeline.bigtableToHbasePipeline(
+            pipelineOptions, hBaseTestingUtility.getConfiguration());
+
+    try {
+      pipelineResult.waitUntilFinish();
+    } catch (Exception e) {
+      throw new Exception("Error: pipeline could not finish");
+    }
+
+    Assert.assertEquals(value, HbaseUtils.getCell(hbaseTable, rowKey, colFamily, colQualifier));
+    Assert.assertTrue(HbaseUtils.getRowResult(hbaseTable, rowKey2).isEmpty());
   }
 }

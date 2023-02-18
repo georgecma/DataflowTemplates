@@ -42,7 +42,9 @@ import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.RowMutations;
 import org.apache.hadoop.util.Time;
 import org.junit.Before;
@@ -86,10 +88,10 @@ public class ConvertChangeStreamTest {
 
     List<Mutation> expectedMutations =
         Arrays.asList(
-            HbaseUtils.HbaseMutationBuilder.createPut(
-                rowKey, colFamily, colQualifier, value, timeT),
-            HbaseUtils.HbaseMutationBuilder.createPut(
-                rowKey, colFamily2, colQualifier2, value2, timeT));
+            new Put(rowKey.getBytes())
+                .addColumn(colFamily.getBytes(), colQualifier.getBytes(), timeT, value.getBytes())
+                .addColumn(
+                    colFamily2.getBytes(), colQualifier2.getBytes(), timeT, value2.getBytes()));
 
     PAssert.that(output)
         .containsInAnyOrder(KV.of(rowKey, HashUtils.hashMutationList(expectedMutations)));
@@ -116,9 +118,10 @@ public class ConvertChangeStreamTest {
 
     List<Mutation> expectedMutations =
         Arrays.asList(
-            HbaseUtils.HbaseMutationBuilder.createPut(
-                rowKey, colFamily, colQualifier, value, timeT),
-            HbaseUtils.HbaseMutationBuilder.createDelete(rowKey, colFamily2, colQualifier2, timeT));
+            new Put(rowKey.getBytes())
+                .addColumn(colFamily.getBytes(), colQualifier.getBytes(), timeT, value.getBytes()),
+            new Delete(rowKey.getBytes())
+                .addColumns(colFamily2.getBytes(), colQualifier2.getBytes(), timeT));
 
     PAssert.that(output)
         .containsInAnyOrder(KV.of(rowKey, HashUtils.hashMutationList(expectedMutations)));
@@ -146,7 +149,7 @@ public class ConvertChangeStreamTest {
     Long now = Time.now();
 
     List<Mutation> expectedMutations =
-        Arrays.asList(HbaseUtils.HbaseMutationBuilder.createDeleteFamily(rowKey, colFamily2, now));
+        Arrays.asList(new Delete(rowKey.getBytes()).addFamily(colFamily2.getBytes(), now));
     PAssert.that(output)
         .containsInAnyOrder(KV.of(rowKey, HashUtils.hashMutationList(expectedMutations)));
     pipeline.run().waitUntilFinish();
@@ -186,17 +189,21 @@ public class ConvertChangeStreamTest {
 
     List<Mutation> rowMutations =
         Arrays.asList(
-            HbaseUtils.HbaseMutationBuilder.createPut(
-                rowKey, colFamily, colQualifier, value, timeT),
-            HbaseUtils.HbaseMutationBuilder.createDelete(rowKey, colFamily, colQualifier, timeT),
-            HbaseUtils.HbaseMutationBuilder.createDeleteFamily(rowKey, colFamily, now));
+            new Put(rowKey.getBytes())
+                .addColumn(colFamily.getBytes(), colQualifier.getBytes(), timeT, value.getBytes()),
+            new Delete(rowKey.getBytes())
+                .addColumns(colFamily.getBytes(), colQualifier.getBytes(), timeT)
+                .addFamily(colFamily.getBytes(), now));
 
     List<Mutation> rowMutations2 =
         Arrays.asList(
-            HbaseUtils.HbaseMutationBuilder.createDelete(rowKey2, colFamily, colQualifier, timeT),
-            HbaseUtils.HbaseMutationBuilder.createDelete(rowKey2, colFamily2, colQualifier2, timeT),
-            HbaseUtils.HbaseMutationBuilder.createPut(
-                rowKey2, colFamily2, colQualifier2, value, timeT));
+            new Delete(rowKey2.getBytes())
+                .addColumns(colFamily.getBytes(), colQualifier.getBytes(), timeT)
+                .addColumns(colFamily2.getBytes(), colQualifier2.getBytes(), timeT),
+            new Put(rowKey2.getBytes())
+                .addColumn(
+                    colFamily2.getBytes(), colQualifier2.getBytes(), timeT, value.getBytes()));
+
     PAssert.that(output)
         .containsInAnyOrder(
             KV.of(rowKey, HashUtils.hashMutationList(rowMutations)),
@@ -226,12 +233,13 @@ public class ConvertChangeStreamTest {
 
     List<Mutation> expectedMutations =
         Arrays.asList(
-            HbaseUtils.HbaseMutationBuilder.createPut(
-                rowKey, colFamily, colQualifier, value, timeT),
-            HbaseUtils.HbaseMutationBuilder.createPut(
-                rowKey, colFamily2, colQualifier2, value2, timeT),
+            new Put(rowKey.getBytes())
+                .addColumn(colFamily.getBytes(), colQualifier.getBytes(), timeT, value.getBytes())
+                .addColumn(
+                    colFamily2.getBytes(), colQualifier2.getBytes(), timeT, value2.getBytes()),
             // Special mutation that denotes origin of replication.
-            HbaseUtils.HbaseMutationBuilder.createDelete(rowKey, colFamily2, cbtQualifier, 0L));
+            new Delete(rowKey.getBytes())
+                .addColumns(colFamily2.getBytes(), cbtQualifier.getBytes(), 0L));
 
     PAssert.that(output)
         .containsInAnyOrder(KV.of(rowKey, HashUtils.hashMutationList(expectedMutations)));

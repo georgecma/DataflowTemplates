@@ -6,7 +6,7 @@ The [BigtableToHBase](src/main/java/com/google/cloud/teleport/v2/templates/Bigta
 
 ### Requirements
 * Bigtable table with change streams enabled
-* Hbase instance
+* Hbase instance that is accessible from Dataflow
 
 ## Building and Running This Template
 This is a Flex Template meaning that the pipeline code will be containerized and the container will be
@@ -34,12 +34,16 @@ export HBASE_ROOT_DIR=<hbase-root-dir, e.g. hdfs://my-server/hbase>
 # optional parameters, modify as needed
 export HBASE_DISTRIBUTED=true
 export BIDIRECTIONAL_REPLICATION=true
-export CBT_QUALIFIER=SOURCE_CBT
-export HBASE_QUALIFIER=SOURCE_HBASE
+# Be wary setting your own qualifiers. They need to match between Hbase and
+# Bigtable replicators to correctly prevent replication loops.
+# The replicator will use these column qualifier keywords to filter out and
+# tag source mutations for bidirectional replication.
+# export CBT_QUALIFIER=SOURCE_CBT
+# export HBASE_QUALIFIER=SOURCE_HBASE
 ```
 
 * Stage and run template in Dataflow:
-*
+
 ```shell
 mvn clean package -PtemplatesRun \
   -Dcheckstyle.skip \

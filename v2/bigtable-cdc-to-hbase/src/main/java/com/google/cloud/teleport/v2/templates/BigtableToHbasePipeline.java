@@ -42,6 +42,12 @@ import org.slf4j.LoggerFactory;
  * Bigtable change stream pipeline to replicate changes to Hbase. Pipeline reads from a Bigtable
  * change stream, converts change stream mutations to their nearest Hbase counterparts, and writes
  * the resulting Hbase row mutations to Hbase.
+ *
+ * <p>In Bigtable, all writes to a single row on a single cluster will be streamed in order by
+ * commitTimestamp. This is only the case for instances with a single cluster, or if all writes to a
+ * given row happen on only one cluster in a replicated instance. This order is maintained in the
+ * Dataflow connector via key-ordered delivery, as the Dataflow connector emits ChangeStreamMutation
+ * records with the row key as the record key.
  */
 @Template(
     name = "bigtable-cdc-to-hbase",
@@ -62,7 +68,7 @@ public class BigtableToHbasePipeline {
     /** Bigtable change stream configs. */
     @TemplateParameter.Text(
         description = "Bigtable project id",
-        helpText = "GCP project id that bigtable is under")
+        helpText = "GCP project id that contains Bigtable instance")
     String getBigtableProjectId();
 
     void setBigtableProjectId(String bigtableProjectId);

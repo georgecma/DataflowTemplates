@@ -19,10 +19,8 @@ import static org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Prec
 
 import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutation;
 import com.google.cloud.bigtable.data.v2.models.DeleteCells;
-import com.google.cloud.bigtable.data.v2.models.DeleteFamily;
 import com.google.cloud.bigtable.data.v2.models.Entry;
-import com.google.cloud.bigtable.data.v2.models.Range.TimestampRange;
-import com.google.cloud.bigtable.data.v2.models.SetCell;
+import com.google.cloud.teleport.v2.templates.utils.RowMutationsBuilder;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -38,9 +36,7 @@ import org.apache.hadoop.hbase.CellScanner;
 import org.apache.hadoop.hbase.CellUtil;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.RowMutations;
-import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -129,7 +125,7 @@ public class ConvertChangeStream {
       if (bidirectionalReplicationEnabled && isHbaseReplicated(mutation, hbaseQualifier)) {
         return;
       }
-      RowMutations hbaseMutations = convertToRowMutations(mutation);
+      RowMutations hbaseMutations = RowMutationsBuilder.buildRowMutations(mutation);
       // Append origin information to mutations.
       if (bidirectionalReplicationEnabled) {
         appendSourceTagToMutations(hbaseMutations, cbtQualifier);
@@ -200,91 +196,6 @@ public class ConvertChangeStream {
         cell = scanner.current();
       }
       return CellUtil.cloneFamily(cell);
-    }
-
-    /**
-     * Converts Bigtable ChangeStreamMutation to HBase RowMutations object.
-     *
-     * @param mutation changeStreamMutation
-     * @return Hbase RowMutations object
-     */
-    public static RowMutations convertToRowMutations(ChangeStreamMutation mutation)
-        throws Exception {
-      // Check for empty change stream mutation, should never happen.
-      if (mutation.getEntries().size() == 0) {
-        throw new Exception("Change stream entries list is empty.");
-      }
-
-      byte[] hbaseRowKey = mutation.getRowKey().toByteArray();
-      RowMutations hbaseMutations = new RowMutations(hbaseRowKey);
-      // Check and convert entries to hbase mutations
-      for (Entry entry : mutation.getEntries()) {
-        if (entry instanceof SetCell) {
-          hbaseMutations.add(convertSetCell(hbaseRowKey, entry));
-        } else if (entry instanceof DeleteCells) {
-          hbaseMutations.add(convertDeleteCells(hbaseRowKey, entry));
-        } else if (entry instanceof DeleteFamily) {
-          hbaseMutations.add(convertDeleteFamily(hbaseRowKey, entry));
-        } else {
-          // All change stream entry types should be supported.
-          throw new Exception("Change stream entry is not a supported type for conversion.");
-        }
-      }
-      return hbaseMutations;
-    }
-
-    private static Put convertSetCell(byte[] hbaseRowKey, Entry entry) {
-      SetCell setCell = (SetCell) entry;
-      // Convert timestamp to milliseconds
-      long ts = convertMicroToMilliseconds(setCell.getTimestamp());
-      Put put = new Put(hbaseRowKey, ts);
-      put.addColumn(
-          convertUtf8String(setCell.getFamilyName()),
-          setCell.getQualifier().toByteArray(),
-          setCell.getValue().toByteArray());
-
-      return put;
-    }
-
-    private static Delete convertDeleteCells(byte[] hbaseRowKey, Entry entry) {
-      DeleteCells deleteCells = (DeleteCells) entry;
-
-      // Convert timestamp to milliseconds
-      long ts = convertMicroToMilliseconds(deleteCells.getTimestampRange().getEnd());
-      // If RowMutation is created with an unbounded timestamp, the mutation is meant to delete
-      // all versions of a cell up to the point of operation.
-      // This behavior is approximated by casting the Hbase delete as deleting up to current point
-      // in time.
-      if (deleteCells.getTimestampRange() == TimestampRange.unbounded()) {
-        ts = Time.now();
-      }
-
-      Delete delete = new Delete(hbaseRowKey, ts);
-      // Delete all versions of this column, which corresponds to Bigtable delete behavior.
-      // TODO: it is possible for CBT to delete single versions of column.
-      //  differentiate between addColumn and AddColumns
-      delete.addColumns(
-          convertUtf8String(deleteCells.getFamilyName()), deleteCells.getQualifier().toByteArray());
-
-      return delete;
-    }
-
-    private static Delete convertDeleteFamily(byte[] hbaseRowKey, Entry entry) {
-      // Bigtable deletefamily does not have a timestamp and relies on transaction sequence to
-      // delete everything before it.
-      // Hbase deletes operate from timestamps only. Therefore, we approximate Bigtable
-      // deletefamily to Hbase deletefamily with timestamp now().
-      long now = Time.now();
-
-      DeleteFamily deleteFamily = (DeleteFamily) entry;
-      Delete delete = new Delete(hbaseRowKey, now);
-      delete.addFamily(convertUtf8String(deleteFamily.getFamilyName()));
-
-      return delete;
-    }
-
-    private static long convertMicroToMilliseconds(long microseconds) {
-      return microseconds / 1000;
     }
   }
 }

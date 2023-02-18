@@ -74,7 +74,7 @@ public class RowMutationsCoderTest {
     RowMutations decodedPut = coder.decode(inputStream);
 
     Assert.assertTrue(inputStream.readAllBytes().length == 0);
-    Assert.assertTrue(HashUtils.rowMutationsEquals(put, decodedPut));
+    HashUtils.assertRowMutationsEquals(put, decodedPut);
   }
 
   @Test
@@ -95,7 +95,7 @@ public class RowMutationsCoderTest {
     RowMutations decodedMultipleMutations = coder.decode(inputStream);
 
     Assert.assertTrue(inputStream.available() == 0);
-    Assert.assertTrue(HashUtils.rowMutationsEquals(multipleMutations, decodedMultipleMutations));
+    HashUtils.assertRowMutationsEquals(multipleMutations, decodedMultipleMutations);
   }
 
   @Test
@@ -129,9 +129,9 @@ public class RowMutationsCoderTest {
     RowMutations decodedDeleteFamily = coder.decode(inputStream);
 
     Assert.assertTrue(inputStream.available() == 0);
-    Assert.assertTrue(HashUtils.rowMutationsEquals(put, decodedPut));
-    Assert.assertTrue(HashUtils.rowMutationsEquals(deleteCols, decodedDeleteCols));
-    Assert.assertTrue(HashUtils.rowMutationsEquals(deleteFamily, decodedDeleteFamily));
+    HashUtils.assertRowMutationsEquals(put, decodedPut);
+    HashUtils.assertRowMutationsEquals(deleteCols, decodedDeleteCols);
+    HashUtils.assertRowMutationsEquals(deleteFamily, decodedDeleteFamily);
   }
 
   @Test
@@ -157,8 +157,8 @@ public class RowMutationsCoderTest {
     RowMutations decodedComplexMutation3 = coder.decode(inputStream);
 
     Assert.assertTrue(inputStream.available() == 0);
-    Assert.assertTrue(HashUtils.rowMutationsEquals(complexMutation, decodedComplexMutation));
-    Assert.assertTrue(HashUtils.rowMutationsEquals(complexMutation, decodedComplexMutation2));
-    Assert.assertTrue(HashUtils.rowMutationsEquals(complexMutation, decodedComplexMutation3));
+    HashUtils.assertRowMutationsEquals(complexMutation, decodedComplexMutation);
+    HashUtils.assertRowMutationsEquals(complexMutation, decodedComplexMutation2);
+    HashUtils.assertRowMutationsEquals(complexMutation, decodedComplexMutation3);
   }
 }
