@@ -28,12 +28,12 @@ export APP_PROFILE=<bigtable-table-app-profile with change streams enabled>
 export GCS_BUCKET_NAME=<gcs-bucket-name without gs://, to stage template at>
 export REGION=<gcp-region to run dataflow job at>
 # Hbase configs
-export ZOOKEEPER_QUORUM=<zookeeper-quorum, e.g. my-zookeeper-server:2181>
+export ZOOKEEPER_QUORUM_HOST=<zookeeper-quorum-host, e.g. my-zookeeper-server>
+export ZOOKEEPER_QUORUM_PORT=<zookeeper-quorum-port, e.g. 2181>
 export HBASE_ROOT_DIR=<hbase-root-dir, e.g. hdfs://my-server/hbase>
 
-# optional parameters, modify as needed
-export HBASE_DISTRIBUTED=true
-export BIDIRECTIONAL_REPLICATION=true
+# optional bidirectional replication settings. Enabled by default.
+# export BIDIRECTIONAL_REPLICATION=true
 # Be wary setting your own qualifiers. They need to match between Hbase and
 # Bigtable replicators to correctly prevent replication loops.
 # The replicator will use these column qualifier keywords to filter out and
@@ -52,7 +52,7 @@ mvn clean package -PtemplatesRun \
   -DbucketName=$GCS_BUCKET_NAME \
   -Dregion=$REGION \
   -DtemplateName="bigtable-cdc-to-hbase" \
-  -Dparameters="bigtableProjectId=$PROJECT,instanceId=$INSTANCE,tableId=$TABLE,appProfileId=$APP_PROFILE,hbaseZookeeperQuorum=$ZOOKEEPER_QUORUM,hbaseRootDir=$HBASE_ROOT_DIR,hbaseClusterDistributed=$HBASE_DISTRIBUTED,bidirectionalReplicationEnabled=$BIDIRECTIONAL_REPLICATION,cbtQualifier=$CBT_QUALIFIER,hbaseQualifier=$HBASE_QUALIFIER" \
+  -Dparameters="bigtableProjectId=$PROJECT,instanceId=$INSTANCE,tableId=$TABLE,appProfileId=$APP_PROFILE,hbaseZookeeperQuorumHost=$ZOOKEEPER_QUORUM_HOST, hbaseZookeeperQuorumPort=$ZOOKEEPER_QUORUM_PORT,hbaseRootDir=$HBASE_ROOT_DIR,bidirectionalReplicationEnabled=$BIDIRECTIONAL_REPLICATION,cbtQualifier=$CBT_QUALIFIER,hbaseQualifier=$HBASE_QUALIFIER" \
   -pl v2/bigtable-cdc-to-hbase
 ```
 ### Testing Template
@@ -71,7 +71,7 @@ mvn clean verify -PtemplatesIntegrationTests \
   -DbucketName=$GCS_BUCKET_NAME \
   -Dregion=$REGION \
   -DtemplateName="bigtable-cdc-to-hbase" \
-  -Dparameters="bigtableProjectId=$PROJECT,instanceId=$INSTANCE,tableId=$TABLE,appProfileId=$APP_PROFILE,hbaseZookeeperQuorum=$ZOOKEEPER_QUORUM,hbaseRootDir=$HBASE_ROOT_DIR,hbaseClusterDistributed=$HBASE_DISTRIBUTED,bidirectionalReplicationEnabled=$BIDIRECTIONAL_REPLICATION,cbtQualifier=$CBT_QUALIFIER,hbaseQualifier=$HBASE_QUALIFIER" \
+  -Dparameters="bigtableProjectId=$PROJECT,instanceId=$INSTANCE,tableId=$TABLE,appProfileId=$APP_PROFILE,hbaseZookeeperQuorumHost=$ZOOKEEPER_QUORUM_HOST, hbaseZookeeperQuorumPort=$ZOOKEEPER_QUORUM_PORT,hbaseRootDir=$HBASE_ROOT_DIR,bidirectionalReplicationEnabled=$BIDIRECTIONAL_REPLICATION,cbtQualifier=$CBT_QUALIFIER,hbaseQualifier=$HBASE_QUALIFIER" \
   -pl v2/bigtable-cdc-to-hbase \
   -Dproject=$PROJECT \
   -DstageBucket=$GCS_BUCKET_NAME \

@@ -26,6 +26,7 @@ import static com.google.cloud.teleport.v2.templates.utils.TestConstants.value2;
 
 import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutation;
 import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutationBuilder;
+import com.google.cloud.teleport.v2.templates.transforms.ChangeStreamToRowMutations;
 import com.google.cloud.teleport.v2.templates.utils.HashUtils;
 import com.google.cloud.teleport.v2.templates.utils.RowMutationsBuilder;
 import java.util.Arrays;
@@ -38,7 +39,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Explicit testing on {@link com.google.cloud.teleport.v2.templates.transforms.ConvertChangeStream}
+ * Explicit testing on {@link ChangeStreamToRowMutations}
  * individual convert functions.
  */
 @RunWith(JUnit4.class)

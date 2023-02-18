@@ -29,7 +29,7 @@ import static com.google.cloud.teleport.v2.templates.utils.TestConstants.value2;
 
 import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutation;
 import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutationBuilder;
-import com.google.cloud.teleport.v2.templates.transforms.ConvertChangeStream;
+import com.google.cloud.teleport.v2.templates.transforms.ChangeStreamToRowMutations;
 import com.google.cloud.teleport.v2.templates.utils.HashUtils;
 import com.google.cloud.teleport.v2.templates.utils.HashUtils.HashHbaseRowMutations;
 import com.google.cloud.teleport.v2.templates.utils.HbaseUtils;
@@ -55,10 +55,10 @@ import org.junit.runners.JUnit4;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Unit tests for the ConvertChangeStreamMutation transformation. */
+/** Unit tests for the ConvertChangeStream transformation. */
 @RunWith(JUnit4.class)
-public class ConvertChangeStreamTest {
-  private static final Logger log = LoggerFactory.getLogger(ConvertChangeStreamTest.class);
+public class ChangeStreamToRowMutationsTest {
+  private static final Logger log = LoggerFactory.getLogger(ChangeStreamToRowMutationsTest.class);
 
   @Rule public final transient TestPipeline pipeline = TestPipeline.create();
 
@@ -83,7 +83,7 @@ public class ConvertChangeStreamTest {
                 Create.of(KV.of(ByteString.copyFromUtf8(rowKey), setCellMutation)))
             .apply(
                 "Convert change stream mutations to hbase mutations",
-                ConvertChangeStream.convertChangeStreamMutation())
+                ChangeStreamToRowMutations.convertChangeStream())
             .apply("Hash hbase mutation for comparison purposes", new HashHbaseRowMutations());
 
     List<Mutation> expectedMutations =
@@ -113,7 +113,7 @@ public class ConvertChangeStreamTest {
                 Create.of(KV.of(ByteString.copyFromUtf8(rowKey), deleteCellsMutation)))
             .apply(
                 "Convert change stream mutations to hbase mutations",
-                ConvertChangeStream.convertChangeStreamMutation())
+                ChangeStreamToRowMutations.convertChangeStream())
             .apply("Hash hbase mutation for comparison purposes", new HashHbaseRowMutations());
 
     List<Mutation> expectedMutations =
@@ -140,7 +140,7 @@ public class ConvertChangeStreamTest {
                 Create.of(KV.of(ByteString.copyFromUtf8(rowKey), deleteFamilyMutation)))
             .apply(
                 "Convert change stream mutations to hbase mutations",
-                ConvertChangeStream.convertChangeStreamMutation())
+                ChangeStreamToRowMutations.convertChangeStream())
             .apply("Hash hbase mutation for comparison purposes", new HashHbaseRowMutations());
 
     // Note that this timestamp is a placeholder and not compared by hash function.
@@ -184,7 +184,7 @@ public class ConvertChangeStreamTest {
                     KV.of(ByteString.copyFromUtf8(rowKey2), rowMutation2)))
             .apply(
                 "Convert change stream mutations to hbase mutations",
-                ConvertChangeStream.convertChangeStreamMutation())
+                ChangeStreamToRowMutations.convertChangeStream())
             .apply("Hash hbase mutation for comparison purposes", new HashHbaseRowMutations());
 
     List<Mutation> rowMutations =
@@ -227,7 +227,7 @@ public class ConvertChangeStreamTest {
                 Create.of(KV.of(ByteString.copyFromUtf8(rowKey), setCellMutation)))
             .apply(
                 "Convert change stream mutations to hbase mutations",
-                ConvertChangeStream.convertChangeStreamMutation()
+                ChangeStreamToRowMutations.convertChangeStream()
                     .withBidirectionalReplication(true, cbtQualifier, hbaseQualifier))
             .apply("Hash hbase mutation for comparison purposes", new HashHbaseRowMutations());
 
@@ -262,7 +262,7 @@ public class ConvertChangeStreamTest {
                 Create.of(KV.of(ByteString.copyFromUtf8(rowKey), setCellMutation)))
             .apply(
                 "Convert change stream mutations to hbase mutations",
-                ConvertChangeStream.convertChangeStreamMutation()
+                ChangeStreamToRowMutations.convertChangeStream()
                     .withBidirectionalReplication(true, cbtQualifier, hbaseQualifier))
             .apply("Hash hbase mutation for comparison purposes", new HashHbaseRowMutations());
 
@@ -293,7 +293,7 @@ public class ConvertChangeStreamTest {
                     KV.of(ByteString.copyFromUtf8(rowKey2), rowMutation2)))
             .apply(
                 "Convert change stream mutations to hbase mutations",
-                ConvertChangeStream.convertChangeStreamMutation()
+                ChangeStreamToRowMutations.convertChangeStream()
                     .withBidirectionalReplication(true, cbtQualifier, hbaseQualifier))
             .apply("Hash hbase mutation for comparison purposes", new HashHbaseRowMutations());
 

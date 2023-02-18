@@ -23,7 +23,6 @@ import com.google.cloud.bigtable.data.v2.models.Entry;
 import com.google.cloud.teleport.v2.templates.utils.RowMutationsBuilder;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -37,16 +36,18 @@ import org.apache.hadoop.hbase.CellUtil;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.RowMutations;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Converts Bigtable change stream RowMutations objects to their approximating HBase mutations. */
-public class ConvertChangeStream {
-  private static final Logger LOG = LoggerFactory.getLogger(ConvertChangeStream.class);
+/** Converts Bigtable change stream {@link com.google.cloud.bigtable.data.v2.models.RowMutation}
+ * to their approximating HBase {@link RowMutations}. */
+public class ChangeStreamToRowMutations {
+  private static final Logger LOG = LoggerFactory.getLogger(ChangeStreamToRowMutations.class);
 
   /** Creates change stream converter transformer. */
-  public static ConvertChangeStreamMutation convertChangeStreamMutation() {
-    return new ConvertChangeStreamMutation();
+  public static ConvertChangeStream convertChangeStream() {
+    return new ConvertChangeStream();
   }
 
   /**
@@ -54,7 +55,7 @@ public class ConvertChangeStream {
    * is Bigtable change stream KV.of(rowkey, changeStreamMutation), Output is KV.of(rowkey, hbase
    * RowMutations object)
    */
-  public static class ConvertChangeStreamMutation
+  public static class ConvertChangeStream
       extends PTransform<
           PCollection<KV<ByteString, ChangeStreamMutation>>,
           PCollection<KV<byte[], RowMutations>>> {
@@ -63,29 +64,29 @@ public class ConvertChangeStream {
      * Call converter with this function with the necessary params to enable bidirectional
      * replication logic.
      *
-     * @param enabled whether bidirectional replication logic is enabled
+     * @param bidirectionalReplicationEnabledInput whether bidirectional replication logic is enabled
      * @param cbtQualifierInput
      * @param hbaseQualifierInput
      */
-    public ConvertChangeStreamMutation withBidirectionalReplication(
-        boolean enabled, String cbtQualifierInput, String hbaseQualifierInput) {
-      return new ConvertChangeStreamMutation(enabled, cbtQualifierInput, hbaseQualifierInput);
+    public ConvertChangeStream withBidirectionalReplication(
+        boolean bidirectionalReplicationEnabledInput, String cbtQualifierInput, String hbaseQualifierInput) {
+      return new ConvertChangeStream(bidirectionalReplicationEnabledInput, cbtQualifierInput, hbaseQualifierInput);
     }
 
-    public ConvertChangeStreamMutation() {}
+    public ConvertChangeStream() {}
 
-    private ConvertChangeStreamMutation(
-        boolean enabled, String cbtQualifierInput, String hbaseQualifierInput) {
-      if (enabled) {
+    private ConvertChangeStream(
+        boolean bidirectionalReplicationEnabledInput, String cbtQualifierInput, String hbaseQualifierInput) {
+      if (bidirectionalReplicationEnabledInput) {
         checkArgument(cbtQualifierInput != null, "cbt qualifier cannot be null.");
         checkArgument(hbaseQualifierInput != null, "hbase qualifier cannot be null.");
       }
-      bidirectionalReplication = enabled;
+      bidirectionalReplicationEnabled = bidirectionalReplicationEnabledInput;
       cbtQualifier = cbtQualifierInput;
       hbaseQualifier = hbaseQualifierInput;
     }
 
-    private boolean bidirectionalReplication;
+    private boolean bidirectionalReplicationEnabled;
     private String cbtQualifier;
     private String hbaseQualifier;
 
@@ -94,22 +95,22 @@ public class ConvertChangeStream {
         PCollection<KV<ByteString, ChangeStreamMutation>> input) {
       return input.apply(
           ParDo.of(
-              new ConvertChangeStreamMutationFn(
-                  bidirectionalReplication, cbtQualifier, hbaseQualifier)));
+              new ConvertChangeStreamFn(
+                  bidirectionalReplicationEnabled, cbtQualifier, hbaseQualifier)));
     }
   }
 
   /** Converts Bigtable change stream mutations to Hbase RowMutations objects. */
-  public static class ConvertChangeStreamMutationFn
+  public static class ConvertChangeStreamFn
       extends DoFn<KV<ByteString, ChangeStreamMutation>, KV<byte[], RowMutations>> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ConvertChangeStreamMutationFn.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ConvertChangeStreamFn.class);
 
     private String hbaseQualifier;
     private String cbtQualifier;
     private boolean bidirectionalReplicationEnabled;
 
-    public ConvertChangeStreamMutationFn(
+    public ConvertChangeStreamFn(
         boolean bidirectionalReplicationEnabledFlag,
         String cbtQualifierInput,
         String hbaseQualifierInput) {
@@ -151,16 +152,16 @@ public class ConvertChangeStream {
         if (((DeleteCells) lastEntry)
             .getQualifier()
             .equals(ByteString.copyFromUtf8(hbaseQualifierInput))) {
-          Metrics.counter("HbaseRepl", "mutations_filtered_from_hbase").inc();
+          Metrics.counter(ConvertChangeStreamFn.class, "mutations_filtered_from_hbase").inc();
           return true;
         }
       }
-      Metrics.counter("HbaseRepl", "mutations_replicated_from_bigtable").inc();
+      Metrics.counter(ConvertChangeStreamFn.class, "mutations_replicated_from_bigtable").inc();
       return false;
     }
 
     static byte[] convertUtf8String(String utf8) {
-      return utf8.getBytes(StandardCharsets.UTF_8);
+      return Bytes.toBytes(utf8);
     }
 
     /**

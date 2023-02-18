@@ -19,7 +19,7 @@ import com.google.cloud.Timestamp;
 import com.google.cloud.teleport.metadata.Template;
 import com.google.cloud.teleport.metadata.TemplateCategory;
 import com.google.cloud.teleport.metadata.TemplateParameter;
-import com.google.cloud.teleport.v2.templates.transforms.ConvertChangeStream;
+import com.google.cloud.teleport.v2.templates.transforms.ChangeStreamToRowMutations;
 import com.google.cloud.teleport.v2.templates.transforms.HbaseRowMutationIO;
 import com.google.cloud.teleport.v2.templates.utils.RowMutationsCoder;
 import java.io.IOException;
@@ -98,11 +98,19 @@ public class BigtableToHbasePipeline {
 
     /** Hbase specific configs. Mirrors configurations on hbase-site.xml. */
     @TemplateParameter.Text(
-        description = "Zookeeper quorum location",
-        helpText = "Zookeeper quorum location, corresponds to hbase.zookeeper.quorum")
-    String getHbaseZookeeperQuorum();
+        description = "Zookeeper quorum host",
+        helpText = "Zookeeper quorum host, corresponds to hbase.zookeeper.quorum host")
+    String getHbaseZookeeperQuorumHost();
 
-    void setHbaseZookeeperQuorum(String hbaseZookeeperQuorum);
+    void setHbaseZookeeperQuorumHost(String hbaseZookeeperQuorumHost);
+
+    @TemplateParameter.Text(
+        description = "Zookeeper quorum port",
+        helpText = "Zookeeper quorum port, corresponds to hbase.zookeeper.quorum port")
+    @Default.String("2181")
+    String getHbaseZookeeperQuorumPort();
+
+    void setHbaseZookeeperQuorumPort(String hbaseZookeeperQuorumPort);
 
     @TemplateParameter.Text(
         description = "Hbase root directory",
@@ -110,14 +118,6 @@ public class BigtableToHbasePipeline {
     String getHbaseRootDir();
 
     void setHbaseRootDir(String hbaseRootDir);
-
-    @TemplateParameter.Text(
-        description = "Hbase cluster distribution mode",
-        helpText = "Whether hbase is distributed, corresponds to hbase.cluster.distributed")
-    @Default.String("true")
-    String getHbaseClusterDistributed();
-
-    void setHbaseClusterDistributed(String hbaseClusterDistributed);
 
     @TemplateParameter.Boolean(
         description = "Bidirectional replication",
@@ -212,7 +212,7 @@ public class BigtableToHbasePipeline {
                 .withEndTime(endTimestamp))
         .apply(
             "Convert CDC mutation to HBase mutation",
-            ConvertChangeStream.convertChangeStreamMutation()
+            ChangeStreamToRowMutations.convertChangeStream()
                 .withBidirectionalReplication(
                     pipelineOptions.getBidirectionalReplicationEnabled(),
                     pipelineOptions.getCbtQualifier(),
@@ -246,9 +246,11 @@ public class BigtableToHbasePipeline {
 
     // Create Hbase-specific connection options.
     Configuration hbaseConf = HBaseConfiguration.create();
-    hbaseConf.set("hbase.zookeeper.quorum", pipelineOptions.getHbaseZookeeperQuorum());
+    hbaseConf.set("hbase.zookeeper.quorum",
+        // Join zookeeper host and port
+        pipelineOptions.getHbaseZookeeperQuorumHost()+":"+pipelineOptions.getHbaseZookeeperQuorumPort()
+    );
     hbaseConf.set("hbase.rootdir", pipelineOptions.getHbaseRootDir());
-    hbaseConf.set("hbase.cluster.distributed", pipelineOptions.getHbaseClusterDistributed());
 
     bigtableToHbasePipeline(pipelineOptions, hbaseConf);
   }
