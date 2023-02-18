@@ -164,7 +164,10 @@ public class ConvertChangeStream {
     }
 
     /**
-     * Appends origin information to row mutation.
+     * Appends origin information to row mutation for bidirectional replication.
+     * The Hbase-Bigtable replicator at the destination Hbase will check for this source tag and
+     * filter out the mutation that this replicator sends out. This prevents replication loops from
+     * forming.
      *
      * @param hbaseMutations row mutation to append origin info to
      * @param cbtQualifierInput origin info string denoting mutation is from bigtable
