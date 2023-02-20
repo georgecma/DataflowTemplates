@@ -130,7 +130,7 @@ public class BigtableToHbasePipeline {
     @TemplateParameter.Text(
         description = "Source CBT qualifier",
         helpText = "Bidirectional replication source CBT qualifier")
-    @Default.String("SOURCE_CBT")
+    @Default.String("CBT_REPL_SOURCE_CBT")
     String getCbtQualifier();
 
     void setCbtQualifier(String cbtQualifier);
@@ -138,7 +138,7 @@ public class BigtableToHbasePipeline {
     @TemplateParameter.Text(
         description = "Source Hbase qualifier",
         helpText = "Bidirectional replication source Hbase qualifier")
-    @Default.String("SOURCE_HBASE")
+    @Default.String("CBT_REPL_SOURCE_HBASE")
     String getHbaseQualifier();
 
     void setHbaseQualifier(String hbaseQualifier);
