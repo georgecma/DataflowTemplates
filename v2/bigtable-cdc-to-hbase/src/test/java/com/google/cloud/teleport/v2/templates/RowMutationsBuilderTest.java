@@ -38,10 +38,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Explicit testing on {@link ChangeStreamToRowMutations}
- * individual convert functions.
- */
+/** Explicit testing on {@link ChangeStreamToRowMutations} individual convert functions. */
 @RunWith(JUnit4.class)
 public class RowMutationsBuilderTest {
 

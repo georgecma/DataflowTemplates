@@ -77,24 +77,27 @@ public class HbaseRowMutationIOTest {
   }
 
   @Test
-  public void writesSingleRowPutsInOrder() throws Exception {
+  public void writesPuts() throws Exception {
 
     Table table = HbaseUtils.createTable(hbaseTestingUtil);
 
-    RowMutations rowMutationsOnTwoColFamilies = new RowMutations(rowKey.getBytes());
-    rowMutationsOnTwoColFamilies.add(
+    // Write two cells in one row mutations object
+    RowMutations rowMutationsOnTwoColumnFamilies = new RowMutations(rowKey.getBytes());
+    rowMutationsOnTwoColumnFamilies.add(
         Arrays.asList(
             HbaseUtils.HbaseMutationBuilder.createPut(
                 rowKey, colFamily, colQualifier, value, timeT),
             HbaseUtils.HbaseMutationBuilder.createPut(
                 rowKey, colFamily2, colQualifier2, value2, timeT)));
 
+    // Two mutations on same cell, later one should overwrite earlier one
     RowMutations overwritingRowMutations =
         new RowMutations(rowKey2.getBytes())
             .add(
                 Arrays.asList(
                     HbaseUtils.HbaseMutationBuilder.createPut(
                         rowKey2, colFamily, colQualifier, value, timeT),
+                    // Overwrites previous mutation
                     HbaseUtils.HbaseMutationBuilder.createPut(
                         rowKey2, colFamily, colQualifier, value2, timeT)));
 
@@ -102,7 +105,7 @@ public class HbaseRowMutationIOTest {
         .apply(
             "Create row mutations",
             Create.of(
-                KV.of(rowKey.getBytes(), rowMutationsOnTwoColFamilies),
+                KV.of(rowKey.getBytes(), rowMutationsOnTwoColumnFamilies),
                 KV.of(rowKey2.getBytes(), overwritingRowMutations)))
         .apply(
             "Write to hbase",
@@ -121,7 +124,7 @@ public class HbaseRowMutationIOTest {
   }
 
   @Test
-  public void writesDeletesInOrder() throws Exception {
+  public void writesDeletes() throws Exception {
     Table table = HbaseUtils.createTable(hbaseTestingUtil);
 
     // Expect deletes to result in empty row.
@@ -164,38 +167,26 @@ public class HbaseRowMutationIOTest {
   }
 
   @Test
-  public void writesDeletesThenPutsInOrder() throws Exception {
+  public void writesDeletesThenPutsInOrderByTimestamp() throws Exception {
     Table table = HbaseUtils.createTable(hbaseTestingUtil);
 
-    // We cannot group the 2 mutations in the same RowMutations object because Hbase delete operates
-    // by timestamp rather than RowMutations.mutations list ordering.
-    // This is a known issue with HBase, see https://issues.apache.org/jira/browse/HBASE-2256
-    RowMutations put =
+    // RowMutations entry ordering does not guarantee mutation ordering, as Hbase operations
+    // are ordered by timestamp. See https://issues.apache.org/jira/browse/HBASE-2256
+    RowMutations putDeletePut =
         new RowMutations(rowKey.getBytes())
             .add(
                 Arrays.asList(
                     HbaseUtils.HbaseMutationBuilder.createPut(
-                        rowKey, colFamily, colQualifier, value, timeT)));
-    RowMutations delete =
-        new RowMutations(rowKey.getBytes())
-            .add(
-                Arrays.asList(
+                        rowKey, colFamily, colQualifier, value, timeT),
                     HbaseUtils.HbaseMutationBuilder.createDeleteFamily(
-                        rowKey, colFamily, timeT + 1)));
-    RowMutations put2 =
-        new RowMutations(rowKey.getBytes())
-            .add(
-                Arrays.asList(
+                        rowKey, colFamily, timeT + 1),
                     HbaseUtils.HbaseMutationBuilder.createPut(
                         rowKey, colFamily, colQualifier, value2, timeT + 2)));
 
     pipeline
-        .apply(
-            "Create row mutations",
-            Create.of(
-                KV.of(rowKey.getBytes(), put),
-                KV.of(rowKey.getBytes(), delete),
-                KV.of(rowKey.getBytes(), put2)))
+        .apply("Create row mutations", Create.of(KV.of(rowKey.getBytes(), putDeletePut)))
+        // KV.of(rowKey.getBytes(), delete),
+        // KV.of(rowKey.getBytes(), put2)))
         .apply(
             "Write to hbase",
             HbaseRowMutationIO.writeRowMutations()

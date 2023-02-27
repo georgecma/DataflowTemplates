@@ -88,6 +88,7 @@ public class BigtableToHbasePipeline {
     void setTableId(String tableId);
 
     @TemplateParameter.Text(
+        optional = true,
         description = "App profile id",
         helpText =
             "Bigtable's app profile id needs to have single-cluster routing with single-row transactions allowed")
@@ -120,6 +121,7 @@ public class BigtableToHbasePipeline {
     void setHbaseRootDir(String hbaseRootDir);
 
     @TemplateParameter.Boolean(
+        optional = true,
         description = "Bidirectional replication",
         helpText = "Whether bidirectional replication between hbase and bigtable is enabled")
     @Default.Boolean(true)
@@ -128,17 +130,19 @@ public class BigtableToHbasePipeline {
     void setBidirectionalReplicationEnabled(boolean bidirectionalReplicationEnabled);
 
     @TemplateParameter.Text(
+        optional = true,
         description = "Source CBT qualifier",
         helpText = "Bidirectional replication source CBT qualifier")
-    @Default.String("CBT_REPL_SOURCE_CBT")
+    @Default.String("BIDIRECTIONAL_REPL_SOURCE_CBT")
     String getCbtQualifier();
 
     void setCbtQualifier(String cbtQualifier);
 
     @TemplateParameter.Text(
+        optional = true,
         description = "Source Hbase qualifier",
         helpText = "Bidirectional replication source Hbase qualifier")
-    @Default.String("CBT_REPL_SOURCE_HBASE")
+    @Default.String("BIDIRECTIONAL_REPL_SOURCE_HBASE")
     String getHbaseQualifier();
 
     void setHbaseQualifier(String hbaseQualifier);
@@ -246,10 +250,12 @@ public class BigtableToHbasePipeline {
 
     // Create Hbase-specific connection options.
     Configuration hbaseConf = HBaseConfiguration.create();
-    hbaseConf.set("hbase.zookeeper.quorum",
+    hbaseConf.set(
+        "hbase.zookeeper.quorum",
         // Join zookeeper host and port
-        pipelineOptions.getHbaseZookeeperQuorumHost()+":"+pipelineOptions.getHbaseZookeeperQuorumPort()
-    );
+        pipelineOptions.getHbaseZookeeperQuorumHost()
+            + ":"
+            + pipelineOptions.getHbaseZookeeperQuorumPort());
     hbaseConf.set("hbase.rootdir", pipelineOptions.getHbaseRootDir());
 
     bigtableToHbasePipeline(pipelineOptions, hbaseConf);

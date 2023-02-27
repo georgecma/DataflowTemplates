@@ -37,9 +37,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Helper class to build rowMutations objects from change stream mutations.
- */
+/** Helper class to build rowMutations objects from change stream mutations. */
 public class RowMutationsBuilder {
   private static final Logger LOG = LoggerFactory.getLogger(RowMutationsBuilder.class);
 
