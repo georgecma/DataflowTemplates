@@ -20,6 +20,7 @@ import static com.google.cloud.teleport.v2.templates.utils.TestConstants.colQual
 import static com.google.cloud.teleport.v2.templates.utils.TestConstants.rowKey;
 import static com.google.cloud.teleport.v2.templates.utils.TestConstants.rowKey2;
 import static com.google.cloud.teleport.v2.templates.utils.TestConstants.value;
+import static com.google.cloud.teleport.v2.templates.utils.TestConstants.value2;
 
 import com.google.cloud.Timestamp;
 import com.google.cloud.bigtable.data.v2.models.Range.TimestampRange;
@@ -33,7 +34,11 @@ import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.apache.beam.sdk.PipelineResult;
+import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.client.Table;
@@ -64,6 +69,8 @@ public class BigtableToHbasePipelineIT extends TemplateTestBase {
   private static StaticBigtableResourceManager bigtableResourceManager;
   private static String cbtQualifier;
   private static String hbaseQualifier;
+  // Timeout for pipeline and tests
+  private static int testTimeoutSeconds = 30;
 
   @BeforeClass
   public static void setUpCluster() throws Exception {
@@ -115,9 +122,10 @@ public class BigtableToHbasePipelineIT extends TemplateTestBase {
             .setAppProfileId(pipelineOptions.getAppProfileId())
             .build();
 
-    // Set time to just cover the timeframe of the upcoming test.
+    // Set time to just cover the timeframe of the upcoming test
     Timestamp start = Timestamp.now();
-    Timestamp endTime = Timestamp.ofTimeSecondsAndNanos(start.getSeconds() + 30, start.getNanos());
+    Timestamp endTime =
+        Timestamp.ofTimeSecondsAndNanos(start.getSeconds() + testTimeoutSeconds, start.getNanos());
     pipelineOptions.setStartTimestamp(start.toString());
     pipelineOptions.setEndTimestamp(endTime.toString());
   }
@@ -221,4 +229,101 @@ public class BigtableToHbasePipelineIT extends TemplateTestBase {
     Assert.assertEquals(value, HbaseUtils.getCell(hbaseTable, rowKey, colFamily, colQualifier));
     Assert.assertTrue(HbaseUtils.getRowResult(hbaseTable, rowKey2).isEmpty());
   }
+
+  /**
+   * We cannot guarantee Dataflow will apply mutations in-order, esp. when Hbase does retries, here
+   * we simulate such an out of order write by setting staggered timestamp and writing the mutations
+   * out of order. Since Hbase determines everything by timestamp, we expect that Hbase should be
+   * able to handle this scenario.
+   *
+   * @throws Exception
+   */
+  @Test
+  public void testPutPipelineOutOfOrder() throws Exception {
+    // Write put,delete,put to Bigtable out of order.
+    RowMutation setCell =
+        RowMutation.create(pipelineOptions.getTableId(), rowKey)
+            .setCell(colFamily, colQualifier, (Time.now() - 2) * 1000, value);
+
+    RowMutation deleteCell =
+        RowMutation.create(pipelineOptions.getTableId(), rowKey)
+            .deleteCells(
+                colFamily,
+                ByteString.copyFromUtf8(colQualifier),
+                TimestampRange.create(0L, (Time.now() - 1) * 1000));
+
+    RowMutation secondSetCell =
+        RowMutation.create(pipelineOptions.getTableId(), rowKey)
+            .setCell(colFamily, colQualifier, Time.now() * 1000, value2);
+
+    bigtableResourceManager.write(secondSetCell);
+    bigtableResourceManager.write(deleteCell);
+    bigtableResourceManager.write(setCell);
+
+    PipelineResult pipelineResult =
+        BigtableToHbasePipeline.bigtableToHbasePipeline(
+            pipelineOptions, hBaseTestingUtility.getConfiguration());
+
+    try {
+      pipelineResult.waitUntilFinish();
+    } catch (Exception e) {
+      throw new Exception("Error: pipeline could not finish");
+    }
+
+    Assert.assertEquals(value2, HbaseUtils.getCell(hbaseTable, rowKey, colFamily, colQualifier));
+  }
+
+  @Test
+  public void testHbaseTableDisabled() throws Exception, IOException {
+    RowMutation setCell =
+        RowMutation.create(pipelineOptions.getTableId(), rowKey)
+            .setCell(colFamily, colQualifier, value);
+
+    // Start pipeline
+    ExecutorService executor = Executors.newFixedThreadPool(2);
+    executor.execute(
+        () -> {
+          PipelineResult pipelineResult =
+              BigtableToHbasePipeline.bigtableToHbasePipeline(
+                  pipelineOptions, hBaseTestingUtility.getConfiguration());
+          pipelineResult.waitUntilFinish();
+        });
+    // Write cell, disable downstream table, pipeline should retry until table is up again
+    executor.execute(
+        () -> {
+          try {
+            hBaseTestingUtility.getAdmin().disableTable(hbaseTable.getName());
+            bigtableResourceManager.write(setCell);
+            hBaseTestingUtility.getAdmin().enableTable(hbaseTable.getName());
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+        });
+
+    executor.awaitTermination(testTimeoutSeconds, TimeUnit.SECONDS);
+
+    Assert.assertEquals(value, HbaseUtils.getCell(hbaseTable, rowKey, colFamily, colQualifier));
+  }
+
+  @Test
+  public void testConnectionPool() throws Exception {
+    // Write to Bigtable.
+    RowMutation setCell =
+        RowMutation.create(pipelineOptions.getTableId(), rowKey)
+            .setCell(colFamily, colQualifier, value);
+    bigtableResourceManager.write(setCell);
+
+    PipelineResult pipelineResult =
+        BigtableToHbasePipeline.bigtableToHbasePipeline(
+            pipelineOptions, hBaseTestingUtility.getConfiguration());
+
+    try {
+      pipelineResult.waitUntilFinish();
+    } catch (Exception e) {
+      throw new Exception("Error: pipeline could not finish");
+    }
+
+    Assert.assertEquals(value, HbaseUtils.getCell(hbaseTable, rowKey, colFamily, colQualifier));
+  }
+
 }

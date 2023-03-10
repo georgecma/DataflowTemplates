@@ -15,17 +15,18 @@
  */
 package com.google.cloud.teleport.v2.templates.utils;
 
-import com.google.api.client.util.Preconditions;
 import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutation;
 import com.google.cloud.bigtable.data.v2.models.DeleteCells;
 import com.google.cloud.bigtable.data.v2.models.DeleteFamily;
 import com.google.cloud.bigtable.data.v2.models.Entry;
 import com.google.cloud.bigtable.data.v2.models.Range.TimestampRange;
 import com.google.cloud.bigtable.data.v2.models.SetCell;
+import com.google.common.base.Preconditions;
 import com.google.protobuf.util.Timestamps;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellBuilderFactory;
 import org.apache.hadoop.hbase.CellBuilderType;
@@ -34,6 +35,7 @@ import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.RowMutations;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -151,6 +153,12 @@ public class RowMutationsBuilder {
     // Hbase by using the change stream commit timestamp.
     com.google.protobuf.Timestamp commitTimestamp = mutation.getCommitTimestamp();
     long msTimestamp = Timestamps.toMillis(commitTimestamp);
+
+    // Get current time in milliseconds and report the difference between commit time and read time.
+    // This time approximates replication delay. This timestamp is not used during enrichment.
+    long now = Time.now();
+    Metrics.distribution(RowMutationsBuilder.class, "cdc_commit_to_process_delay")
+        .update(now - msTimestamp);
 
     byte[] hbaseRowKey = mutation.getRowKey().toByteArray();
 

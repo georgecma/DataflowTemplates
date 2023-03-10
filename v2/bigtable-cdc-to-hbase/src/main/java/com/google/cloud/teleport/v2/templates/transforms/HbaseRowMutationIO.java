@@ -15,9 +15,10 @@
  */
 package com.google.cloud.teleport.v2.templates.transforms;
 
-import static org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Preconditions.checkArgument;
-import static org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.cloud.teleport.v2.templates.utils.HbaseConnectionDao;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -33,13 +34,15 @@ import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.display.DisplayData;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
-import org.apache.beam.sdk.values.PDone;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.BufferedMutator;
+import org.apache.hadoop.hbase.client.BufferedMutatorParams;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.RowMutations;
 import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,17 +64,18 @@ public class HbaseRowMutationIO {
 
   /** Transformation that writes RowMutation objects to a Hbase table. */
   public static class WriteRowMutations
-      extends PTransform<PCollection<KV<byte[], RowMutations>>, PDone> {
+      extends PTransform<PCollection<KV<byte[], RowMutations>>, PCollection<Integer>> {
+
 
     /** Writes to the HBase instance indicated by the* given Configuration. */
     public WriteRowMutations withConfiguration(Configuration configuration) {
-      checkArgument(configuration != null, "configuration cannot be null");
+      checkNotNull(configuration, "configuration cannot be null");
       return new WriteRowMutations(configuration, tableId);
     }
 
     /** Writes to the specified table. */
     public WriteRowMutations withTableId(String tableId) {
-      checkArgument(tableId != null, "tableId cannot be null");
+      checkNotNull(tableId, "tableId cannot be null");
       return new WriteRowMutations(configuration, tableId);
     }
 
@@ -81,13 +85,18 @@ public class HbaseRowMutationIO {
     }
 
     @Override
-    public PDone expand(PCollection<KV<byte[], RowMutations>> input) {
-      checkArgument(configuration != null, "withConfiguration() is required");
-      checkArgument(tableId != null && !tableId.isEmpty(), "withTableId() is required");
+    public PCollection<Integer> expand(PCollection<KV<byte[], RowMutations>> input) {
+      checkNotNull(configuration, "withConfiguration() is required");
+      checkNotNull(tableId, "withTableId() is required");
+      checkArgument(!tableId.isEmpty(), "withTableId() cannot be empty");
 
-      input.apply(ParDo.of(new WriteRowMutationsFn(this)));
+      if (hbaseConnectionDao == null) {
+        hbaseConnectionDao = new HbaseConnectionDao();
+      }
 
-      return PDone.in(input.getPipeline());
+      return input.apply(ParDo.of(new WriteRowMutationsFn(this, hbaseConnectionDao)));
+      // TODO: change this back to PDone later.
+      // // return PDone.in(input.getPipeline());
     }
 
     @Override
@@ -145,6 +154,7 @@ public class HbaseRowMutationIO {
       private void writeObject(ObjectOutputStream out) throws IOException {
         SerializableCoder.of(SerializableConfiguration.class)
             .encode(new SerializableConfiguration(this.configuration), out);
+
         StringUtf8Coder.of().encode(this.tableId, out);
       }
 
@@ -163,44 +173,115 @@ public class HbaseRowMutationIO {
       private String tableId;
     }
 
+    private static HbaseConnectionDao hbaseConnectionDao;
     private final Configuration configuration;
-
     private final String tableId;
 
-    /** Function to write row mutations to an hbase table. */
-    private class WriteRowMutationsFn extends DoFn<KV<byte[], RowMutations>, Void> {
+    /** Function to write row mutations to a hbase table. */
+    private class WriteRowMutationsFn extends DoFn<KV<byte[], RowMutations>, Integer> {
 
-      WriteRowMutationsFn(WriteRowMutations writeRowMutations) {
+      // WriteRowMutationsFn(WriteRowMutations writeRowMutations) {
+      //   checkNotNull(writeRowMutations.tableId, "tableId");
+      //   checkNotNull(writeRowMutations.configuration, "configuration");
+      //   // TODO: check if this is necessary
+      //   checkNotNull(writeRowMutations.hbaseConnectionDao);
+      // }
+
+      public WriteRowMutationsFn(WriteRowMutations writeRowMutations, HbaseConnectionDao hbaseConnectionDao) {
         checkNotNull(writeRowMutations.tableId, "tableId");
         checkNotNull(writeRowMutations.configuration, "configuration");
+
+        // checkNotNull(hbaseConnectionDao);
+        this.hbaseConnectionDao = hbaseConnectionDao;
       }
 
       @Setup
       public void setup() throws Exception {
-        connection = ConnectionFactory.createConnection(configuration);
-        table = connection.getTable(TableName.valueOf(tableId));
+        // connection = ConnectionFactory.createConnection(configuration);
+        connection = hbaseConnectionDao.getOrCreate(configuration);
+      }
+
+      @StartBundle
+      public void startBundle(StartBundleContext c) throws IOException {
+
+        // TODO: swap out mutator https://stackoverflow.com/questions/45865388/hbase-bufferedmutator-vs-putlist-performance
+        //  because there's no ordering guarantees
+        BufferedMutatorParams params = new BufferedMutatorParams(TableName.valueOf(tableId));
+        mutator = connection.getBufferedMutator(params);
+        // table = connection.getTable(TableName.valueOf(tableId));
+        recordsWritten = 0;
+      }
+
+      @FinishBundle
+      public void finishBundle() throws Exception {
+        mutator.flush();
+
+        // if (table != null) {
+        //   table.close();
+        //   table = null;
+        // }
+
+        LOG.debug("Wrote {} records", recordsWritten);
+      }
+
+      @Teardown
+      public void tearDown() throws Exception {
+        if (mutator != null) {
+          mutator.close();
+          mutator = null;
+        }
+
+        // if (table != null) {
+        //   table.close();
+        //   table = null;
+        // }
+
+        hbaseConnectionDao.close();
+        //
+        // if (connection != null) {
+        //   connection.close();
+        //   connection = null;
+        // }
       }
 
       @ProcessElement
       public void processElement(ProcessContext c) throws Exception {
         RowMutations mutations = c.element().getValue();
 
+        // Block advancing the function until the mutation is successful
+        // checkAndInitConnection();
         // TODO: we use MutateRow(RowMutations). Figure out if it'd be more efficient batch writing
         //  here with e.g. BufferedMutator.mutate(Mutations) after grouping by rowkey.
-        table.mutateRow(mutations);
-        Metrics.counter("HbaseRepl", "mutations_written_to_hbase").inc();
-      }
+        try {
+          // TODO: remove below
+          //  https://stackoverflow.com/questions/45865388/hbase-bufferedmutator-vs-putlist-performance
+          //  We use BufferedMutator to batch async calls to Hbase for better throughput.
+           mutator.mutate(mutations.getMutations());
+          // table.mutateRow(mutations);
 
-      @Teardown
-      public void tearDown() throws Exception {
-        if (table != null) {
-          table.close();
-          table = null;
+        } catch (Exception e) {
+          // TODO: simplify warning later.
+          throw new Exception(
+              (String.join(
+                  " ",
+                  "Table",
+                  tableId,
+                  "row",
+                  Bytes.toString(mutations.getRow()),
+                  "mutation failed.",
+                  "\nTable Available/Enabled:",
+                  Boolean.toString(
+                      connection.getAdmin().isTableAvailable(TableName.valueOf(tableId))),
+                  Boolean.toString(
+                      connection.getAdmin().isTableEnabled(TableName.valueOf(tableId))),
+                  "\nConnection Closed/Aborted/Locks:",
+                  Boolean.toString(connection.isClosed()),
+                  Boolean.toString(connection.isAborted()),
+                  connection.getAdmin().getLocks())));
         }
-        if (connection != null) {
-          connection.close();
-          connection = null;
-        }
+
+        Metrics.counter(HbaseRowMutationIO.class, "mutations_written_to_hbase").inc();
+        c.output(1); // Dummy output so that we can get Dataflow stats for throughput.
       }
 
       @Override
@@ -208,8 +289,12 @@ public class HbaseRowMutationIO {
         builder.delegate(WriteRowMutations.this);
       }
 
+      private long recordsWritten;
+
+      private HbaseConnectionDao hbaseConnectionDao;
       private transient Connection connection;
-      private transient Table table;
+      private transient BufferedMutator mutator;
+      // private transient Table table;
     }
   }
 }

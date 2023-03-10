@@ -154,5 +154,13 @@
     <artifactId>gax</artifactId>
     <version>2.19.2</version>
     </dependency>
+    <dependency>
+      <groupId>org.apache.beam</groupId>
+      <artifactId>beam-sdks-java-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.beam</groupId>
+      <artifactId>beam-sdks-java-core</artifactId>
+    </dependency>
   </dependencies>
 </project>

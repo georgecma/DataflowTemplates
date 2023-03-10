@@ -15,7 +15,7 @@
  */
 package com.google.cloud.teleport.v2.templates.transforms;
 
-import static org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutation;
 import com.google.cloud.bigtable.data.v2.models.DeleteCells;
@@ -40,8 +40,10 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Converts Bigtable change stream {@link com.google.cloud.bigtable.data.v2.models.RowMutation}
- * to their approximating HBase {@link RowMutations}. */
+/**
+ * Converts Bigtable change stream {@link com.google.cloud.bigtable.data.v2.models.RowMutation} to
+ * their approximating HBase {@link RowMutations}.
+ */
 public class ChangeStreamToRowMutations {
   private static final Logger LOG = LoggerFactory.getLogger(ChangeStreamToRowMutations.class);
 
@@ -64,19 +66,25 @@ public class ChangeStreamToRowMutations {
      * Call converter with this function with the necessary params to enable bidirectional
      * replication logic.
      *
-     * @param bidirectionalReplicationEnabledInput whether bidirectional replication logic is enabled
+     * @param bidirectionalReplicationEnabledInput whether bidirectional replication logic is
+     *     enabled
      * @param cbtQualifierInput
      * @param hbaseQualifierInput
      */
     public ConvertChangeStream withBidirectionalReplication(
-        boolean bidirectionalReplicationEnabledInput, String cbtQualifierInput, String hbaseQualifierInput) {
-      return new ConvertChangeStream(bidirectionalReplicationEnabledInput, cbtQualifierInput, hbaseQualifierInput);
+        boolean bidirectionalReplicationEnabledInput,
+        String cbtQualifierInput,
+        String hbaseQualifierInput) {
+      return new ConvertChangeStream(
+          bidirectionalReplicationEnabledInput, cbtQualifierInput, hbaseQualifierInput);
     }
 
     public ConvertChangeStream() {}
 
     private ConvertChangeStream(
-        boolean bidirectionalReplicationEnabledInput, String cbtQualifierInput, String hbaseQualifierInput) {
+        boolean bidirectionalReplicationEnabledInput,
+        String cbtQualifierInput,
+        String hbaseQualifierInput) {
       if (bidirectionalReplicationEnabledInput) {
         checkArgument(cbtQualifierInput != null, "cbt qualifier cannot be null.");
         checkArgument(hbaseQualifierInput != null, "hbase qualifier cannot be null.");
@@ -165,10 +173,9 @@ public class ChangeStreamToRowMutations {
     }
 
     /**
-     * Appends origin information to row mutation for bidirectional replication.
-     * The Hbase-Bigtable replicator at the destination Hbase will check for this source tag and
-     * filter out the mutation that this replicator sends out. This prevents replication loops from
-     * forming.
+     * Appends origin information to row mutation for bidirectional replication. The Hbase-Bigtable
+     * replicator at the destination Hbase will check for this source tag and filter out the
+     * mutation that this replicator sends out. This prevents replication loops from forming.
      *
      * @param hbaseMutations row mutation to append origin info to
      * @param cbtQualifierInput origin info string denoting mutation is from bigtable
