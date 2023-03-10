@@ -87,9 +87,9 @@ public class HbaseRowMutationIO {
       checkNotNull(tableId, "withTableId() is required");
       checkArgument(!tableId.isEmpty(), "withTableId() cannot be empty");
 
-      HbaseSharedConnection hbaseSharedConnection = new HbaseSharedConnection();
+      // HbaseSharedConnection hbaseSharedConnection = new HbaseSharedConnection();
 
-      return input.apply(ParDo.of(new WriteRowMutationsFn(this, hbaseSharedConnection)));
+      return input.apply(ParDo.of(new WriteRowMutationsFn(this)));
       // TODO: change this back to PDone later.
       // // return PDone.in(input.getPipeline());
     }
@@ -175,18 +175,14 @@ public class HbaseRowMutationIO {
     private class WriteRowMutationsFn extends DoFn<KV<byte[], RowMutations>, Integer> {
 
       public WriteRowMutationsFn(
-          WriteRowMutations writeRowMutations, HbaseSharedConnection hbaseSharedConnection) {
+          WriteRowMutations writeRowMutations) { //, HbaseSharedConnection hbaseSharedConnection) {
         checkNotNull(writeRowMutations.tableId, "tableId");
         checkNotNull(writeRowMutations.configuration, "configuration");
-
-        // checkNotNull(hbaseSharedConnection);
-        this.hbaseSharedConnection = hbaseSharedConnection;
       }
 
       @Setup
       public void setup() throws Exception {
-        connection = HbaseSharedConnection.getOrCreate(configuration);
-        Metrics.counter(HbaseRowMutationIO.class, "active_hbase_connection").inc();
+        connection = HbaseSharedConnection.HbaseConnection.getOrCreate(configuration);
       }
 
       @StartBundle
@@ -225,32 +221,19 @@ public class HbaseRowMutationIO {
         //   table = null;
         // }
 
-        hbaseSharedConnection.close();
-        Metrics.counter(HbaseRowMutationIO.class, "active_hbase_connection").dec();
-
-        //
-        // if (connection != null) {
-        //   connection.close();
-        //   connection = null;
-        // }
+        HbaseSharedConnection.HbaseConnection.close();
       }
 
       @ProcessElement
       public void processElement(ProcessContext c) throws Exception {
         RowMutations mutations = c.element().getValue();
 
-        // Block advancing the function until the mutation is successful
-        // checkAndInitConnection();
-        // TODO: we use MutateRow(RowMutations). Figure out if it'd be more efficient batch writing
-        //  here with e.g. BufferedMutator.mutate(Mutations) after grouping by rowkey.
         try {
           // TODO: remove below
-          //
           // https://stackoverflow.com/questions/45865388/hbase-bufferedmutator-vs-putlist-performance
           //  We use BufferedMutator to batch async calls to Hbase for better throughput.
           mutator.mutate(mutations.getMutations());
           // table.mutateRow(mutations);
-
         } catch (Exception e) {
           // TODO: simplify warning later.
           throw new Exception(
