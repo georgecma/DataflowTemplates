@@ -38,7 +38,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.apache.beam.sdk.PipelineResult;
-import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.client.Table;
@@ -304,26 +303,4 @@ public class BigtableToHbasePipelineIT extends TemplateTestBase {
 
     Assert.assertEquals(value, HbaseUtils.getCell(hbaseTable, rowKey, colFamily, colQualifier));
   }
-
-  @Test
-  public void testConnectionPool() throws Exception {
-    // Write to Bigtable.
-    RowMutation setCell =
-        RowMutation.create(pipelineOptions.getTableId(), rowKey)
-            .setCell(colFamily, colQualifier, value);
-    bigtableResourceManager.write(setCell);
-
-    PipelineResult pipelineResult =
-        BigtableToHbasePipeline.bigtableToHbasePipeline(
-            pipelineOptions, hBaseTestingUtility.getConfiguration());
-
-    try {
-      pipelineResult.waitUntilFinish();
-    } catch (Exception e) {
-      throw new Exception("Error: pipeline could not finish");
-    }
-
-    Assert.assertEquals(value, HbaseUtils.getCell(hbaseTable, rowKey, colFamily, colQualifier));
-  }
-
 }

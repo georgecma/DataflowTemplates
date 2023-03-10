@@ -18,7 +18,7 @@ package com.google.cloud.teleport.v2.templates.transforms;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.cloud.teleport.v2.templates.utils.HbaseConnectionDao;
+import com.google.cloud.teleport.v2.templates.utils.HbaseSharedConnection;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -39,9 +39,7 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.BufferedMutator;
 import org.apache.hadoop.hbase.client.BufferedMutatorParams;
 import org.apache.hadoop.hbase.client.Connection;
-import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.RowMutations;
-import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
@@ -66,7 +64,6 @@ public class HbaseRowMutationIO {
   public static class WriteRowMutations
       extends PTransform<PCollection<KV<byte[], RowMutations>>, PCollection<Integer>> {
 
-
     /** Writes to the HBase instance indicated by the* given Configuration. */
     public WriteRowMutations withConfiguration(Configuration configuration) {
       checkNotNull(configuration, "configuration cannot be null");
@@ -90,11 +87,9 @@ public class HbaseRowMutationIO {
       checkNotNull(tableId, "withTableId() is required");
       checkArgument(!tableId.isEmpty(), "withTableId() cannot be empty");
 
-      if (hbaseConnectionDao == null) {
-        hbaseConnectionDao = new HbaseConnectionDao();
-      }
+      HbaseSharedConnection hbaseSharedConnection = new HbaseSharedConnection();
 
-      return input.apply(ParDo.of(new WriteRowMutationsFn(this, hbaseConnectionDao)));
+      return input.apply(ParDo.of(new WriteRowMutationsFn(this, hbaseSharedConnection)));
       // TODO: change this back to PDone later.
       // // return PDone.in(input.getPipeline());
     }
@@ -173,38 +168,32 @@ public class HbaseRowMutationIO {
       private String tableId;
     }
 
-    private static HbaseConnectionDao hbaseConnectionDao;
     private final Configuration configuration;
     private final String tableId;
 
     /** Function to write row mutations to a hbase table. */
     private class WriteRowMutationsFn extends DoFn<KV<byte[], RowMutations>, Integer> {
 
-      // WriteRowMutationsFn(WriteRowMutations writeRowMutations) {
-      //   checkNotNull(writeRowMutations.tableId, "tableId");
-      //   checkNotNull(writeRowMutations.configuration, "configuration");
-      //   // TODO: check if this is necessary
-      //   checkNotNull(writeRowMutations.hbaseConnectionDao);
-      // }
-
-      public WriteRowMutationsFn(WriteRowMutations writeRowMutations, HbaseConnectionDao hbaseConnectionDao) {
+      public WriteRowMutationsFn(
+          WriteRowMutations writeRowMutations, HbaseSharedConnection hbaseSharedConnection) {
         checkNotNull(writeRowMutations.tableId, "tableId");
         checkNotNull(writeRowMutations.configuration, "configuration");
 
-        // checkNotNull(hbaseConnectionDao);
-        this.hbaseConnectionDao = hbaseConnectionDao;
+        // checkNotNull(hbaseSharedConnection);
+        this.hbaseSharedConnection = hbaseSharedConnection;
       }
 
       @Setup
       public void setup() throws Exception {
-        // connection = ConnectionFactory.createConnection(configuration);
-        connection = hbaseConnectionDao.getOrCreate(configuration);
+        connection = HbaseSharedConnection.getOrCreate(configuration);
+        Metrics.counter(HbaseRowMutationIO.class, "active_hbase_connection").inc();
       }
 
       @StartBundle
       public void startBundle(StartBundleContext c) throws IOException {
 
-        // TODO: swap out mutator https://stackoverflow.com/questions/45865388/hbase-bufferedmutator-vs-putlist-performance
+        // TODO: swap out mutator
+        // https://stackoverflow.com/questions/45865388/hbase-bufferedmutator-vs-putlist-performance
         //  because there's no ordering guarantees
         BufferedMutatorParams params = new BufferedMutatorParams(TableName.valueOf(tableId));
         mutator = connection.getBufferedMutator(params);
@@ -236,7 +225,9 @@ public class HbaseRowMutationIO {
         //   table = null;
         // }
 
-        hbaseConnectionDao.close();
+        hbaseSharedConnection.close();
+        Metrics.counter(HbaseRowMutationIO.class, "active_hbase_connection").dec();
+
         //
         // if (connection != null) {
         //   connection.close();
@@ -254,9 +245,10 @@ public class HbaseRowMutationIO {
         //  here with e.g. BufferedMutator.mutate(Mutations) after grouping by rowkey.
         try {
           // TODO: remove below
-          //  https://stackoverflow.com/questions/45865388/hbase-bufferedmutator-vs-putlist-performance
+          //
+          // https://stackoverflow.com/questions/45865388/hbase-bufferedmutator-vs-putlist-performance
           //  We use BufferedMutator to batch async calls to Hbase for better throughput.
-           mutator.mutate(mutations.getMutations());
+          mutator.mutate(mutations.getMutations());
           // table.mutateRow(mutations);
 
         } catch (Exception e) {
@@ -291,7 +283,7 @@ public class HbaseRowMutationIO {
 
       private long recordsWritten;
 
-      private HbaseConnectionDao hbaseConnectionDao;
+      private HbaseSharedConnection hbaseSharedConnection;
       private transient Connection connection;
       private transient BufferedMutator mutator;
       // private transient Table table;
