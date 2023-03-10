@@ -24,8 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Assumes one connection. TODO: verify that only one connection is ever needed, i.e. we won't need
- * a shared cache.
+ *
  */
 public class HbaseSharedConnection implements Serializable {
 
@@ -41,11 +40,10 @@ public class HbaseSharedConnection implements Serializable {
     }
     return hbaseConnection.getOrCreate(configuration);
   }
-
+  
   public synchronized void close() throws IOException {
     if (hbaseConnection != null) {
       hbaseConnection.close();
-      hbaseConnection = null;
     }
   }
 
