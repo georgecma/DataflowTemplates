@@ -250,8 +250,6 @@ public class HbaseRowMutationIO {
       }
 
       private long recordsWritten;
-
-      private HbaseSharedConnection hbaseSharedConnection;
       private transient Connection connection;
       private transient Table table;
     }
