@@ -60,7 +60,7 @@ public class RowMutationsCoderTest {
   }
 
   @Test
-  public void encodePut() throws Exception {
+  public void testEncodePut() throws Exception {
     RowMutations put =
         new RowMutations(rowKey.getBytes())
             .add(
@@ -78,7 +78,7 @@ public class RowMutationsCoderTest {
   }
 
   @Test
-  public void encodeMultipleMutations() throws Exception {
+  public void testEncodeMultipleMutations() throws Exception {
     RowMutations multipleMutations =
         new RowMutations(rowKey.getBytes())
             .add(
@@ -99,7 +99,7 @@ public class RowMutationsCoderTest {
   }
 
   @Test
-  public void encodeMultipleRowMutations() throws Exception {
+  public void testEncodeMultipleRowMutations() throws Exception {
     RowMutations put =
         new RowMutations(rowKey.getBytes())
             .add(
@@ -135,7 +135,7 @@ public class RowMutationsCoderTest {
   }
 
   @Test
-  public void encodeMultipleComplexRowMutations() throws Exception {
+  public void testEncodeMultipleComplexRowMutations() throws Exception {
     RowMutations complexMutation =
         new RowMutations(rowKey.getBytes())
             .add(

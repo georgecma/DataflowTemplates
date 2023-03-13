@@ -69,7 +69,7 @@ public class ChangeStreamToRowMutationsTest {
   }
 
   @Test
-  public void convertsSetCellToHbasePut() throws Exception {
+  public void testConvertsSetCellToHbasePut() throws Exception {
     ChangeStreamMutation setCellMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
@@ -99,7 +99,7 @@ public class ChangeStreamToRowMutationsTest {
   }
 
   @Test
-  public void convertsDeleteCellsToHbaseDelete() throws Exception {
+  public void testConvertsDeleteCellsToHbaseDelete() throws Exception {
     ChangeStreamMutation deleteCellsMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
@@ -129,7 +129,7 @@ public class ChangeStreamToRowMutationsTest {
   }
 
   @Test
-  public void skipsDeleteTimestampRange() throws Exception {
+  public void testSkipsDeleteTimestampRange() throws Exception {
     ChangeStreamMutation deleteCellsMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
@@ -157,7 +157,7 @@ public class ChangeStreamToRowMutationsTest {
   }
 
   @Test
-  public void convertsDeleteFamilyToHbaseDelete() throws Exception {
+  public void testConvertsDeleteFamilyToHbaseDelete() throws Exception {
     ChangeStreamMutation deleteFamilyMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000).deleteFamily(colFamily2).build();
 
@@ -184,7 +184,7 @@ public class ChangeStreamToRowMutationsTest {
   }
 
   @Test
-  public void convertsMultipleRows() throws Exception {
+  public void testConvertsMultipleRows() throws Exception {
     ChangeStreamMutation rowMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
@@ -241,7 +241,7 @@ public class ChangeStreamToRowMutationsTest {
   }
 
   @Test
-  public void addsSpecialMutationInBidirectionalReplication() throws Exception {
+  public void testAddsSpecialMutationInBidirectionalReplication() throws Exception {
     ChangeStreamMutation setCellMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
@@ -275,7 +275,7 @@ public class ChangeStreamToRowMutationsTest {
   }
 
   @Test
-  public void filtersOutHbaseReplicatedMutations() {
+  public void testFiltersOutHbaseReplicatedMutations() {
     ChangeStreamMutation setCellMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
@@ -300,7 +300,7 @@ public class ChangeStreamToRowMutationsTest {
   }
 
   @Test
-  public void filtersAndReplicatesMultipleRowsWithBidirectionalReplication() throws Exception {
+  public void testFiltersAndReplicatesMultipleRowsWithBidirectionalReplication() throws Exception {
     ChangeStreamMutation rowMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)

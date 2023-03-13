@@ -43,7 +43,7 @@ import org.junit.runners.JUnit4;
 public class RowMutationsBuilderTest {
 
   @Test
-  public void convertsSetCellToHbasePut() throws Exception {
+  public void testConvertsSetCellToHbasePut() throws Exception {
     ChangeStreamMutation changeStreamMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
@@ -69,7 +69,7 @@ public class RowMutationsBuilderTest {
   }
 
   @Test
-  public void convertsDeleteCellsToHbaseDelete() throws Exception {
+  public void testConvertsDeleteCellsToHbaseDelete() throws Exception {
     ChangeStreamMutation changeStreamMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
@@ -91,7 +91,7 @@ public class RowMutationsBuilderTest {
   }
 
   @Test
-  public void skipsDeleteTimestampRange() throws Exception {
+  public void testSkipsDeleteTimestampRange() throws Exception {
     ChangeStreamMutation changeStreamMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
@@ -112,7 +112,7 @@ public class RowMutationsBuilderTest {
   }
 
   @Test
-  public void convertsDeleteFamilyToHbaseDelete() throws Exception {
+  public void testConvertsDeleteFamilyToHbaseDelete() throws Exception {
     ChangeStreamMutation changeStreamMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)

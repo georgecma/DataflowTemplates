@@ -77,7 +77,7 @@ public class HbaseRowMutationIOTest {
   }
 
   @Test
-  public void writesPuts() throws Exception {
+  public void testWritesPuts() throws Exception {
 
     Table table = HbaseUtils.createTable(hbaseTestingUtil);
 
@@ -124,7 +124,7 @@ public class HbaseRowMutationIOTest {
   }
 
   @Test
-  public void writesDeletes() throws Exception {
+  public void testWritesDeletes() throws Exception {
     Table table = HbaseUtils.createTable(hbaseTestingUtil);
 
     // Expect deletes to result in empty row.
@@ -167,7 +167,7 @@ public class HbaseRowMutationIOTest {
   }
 
   @Test
-  public void writesDeletesThenPutsInOrderByTimestamp() throws Exception {
+  public void testWritesDeletesThenPutsInOrderByTimestamp() throws Exception {
     Table table = HbaseUtils.createTable(hbaseTestingUtil);
 
     // RowMutations entry ordering does not guarantee mutation ordering, as Hbase operations
