@@ -193,7 +193,11 @@ public class RowMutationsBuilder {
       byte[] hbaseRowKey, long msTimestamp, List<Entry> entryList) throws Exception {
     List<Cell> cellList = new ArrayList<>();
     for (Entry entry : entryList) {
-      cellList.add(convertEntryToCell(hbaseRowKey, msTimestamp, entry));
+      Cell cell = convertEntryToCell(hbaseRowKey, msTimestamp, entry);
+      if (cell != null) {
+        cellList.add(cell);
+      }
+
     }
     return cellList;
   }
@@ -219,7 +223,6 @@ public class RowMutationsBuilder {
     // Convert timestamp to milliseconds
     long ts = convertMicroToMilliseconds(setCell.getTimestamp());
 
-    LOG.warn("set cell timestamp " + Long.toString(ts));
     Cell cell =
         CellBuilderFactory.create(CellBuilderType.DEEP_COPY)
             .setType(Cell.Type.Put)
@@ -248,12 +251,19 @@ public class RowMutationsBuilder {
       // This behavior is approximated by casting the Hbase delete as deleting up to change stream
       // commit timestamp.
       ts = msTimestamp;
-
+      Metrics.counter(RowMutationsBuilder.class, "delete_no_timestamp_approximated").inc();
     } else if (cellStartTs > 0) {
       // Bigtable allows range deletion, Hbase does not. If we encounter a range deletion operation,
       // then log a warning and approximate it to delete from 0 to range end
-      // TODO: flesh this out more.
-      LOG.warn("Bigtable delete timestamp range operation detected");
+      LOG.warn(String.format("Skipping incompatible delete timestamp range operation for %s, %s:%s, %s-%s.",
+          Bytes.toString(hbaseRowKey),
+          deleteCells.getFamilyName(),
+          deleteCells.getQualifier(),
+          deleteCells.getTimestampRange().getStart(),
+          deleteCells.getTimestampRange().getEnd())
+        );
+      Metrics.counter(RowMutationsBuilder.class, "delete_timestamp_range_dropped").inc();
+      return null;
     }
 
     // Delete all versions of this column, which corresponds to Bigtable delete behavior.
@@ -271,11 +281,11 @@ public class RowMutationsBuilder {
 
   private static Cell convertDeleteFamily(
       byte[] hbaseRowKey, DeleteFamily deleteFamily, long msTimestamp) {
-
     // Bigtable deletefamily does not have a timestamp and relies on transaction sequence to
     // delete everything before it.
     // Hbase deletes operate from timestamps only. Therefore, we approximate Bigtable
     // deletefamily to Hbase deletefamily with change stream commit timestamp.
+    Metrics.counter(RowMutationsBuilder.class, "delete_family_timestamp_approximated").inc();
     Cell cell =
         CellBuilderFactory.create(CellBuilderType.DEEP_COPY)
             .setType(Cell.Type.DeleteFamily)

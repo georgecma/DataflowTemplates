@@ -103,7 +103,7 @@ public class ChangeStreamToRowMutationsTest {
     ChangeStreamMutation deleteCellsMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
-            .deleteCells(colFamily2, colQualifier2, timeT, timeT * 1000)
+            .deleteCells(colFamily2, colQualifier2, 0, timeT * 1000)
             .build();
 
     PCollection<KV<String, List<String>>> output =
@@ -122,6 +122,34 @@ public class ChangeStreamToRowMutationsTest {
                 .addColumn(colFamily.getBytes(), colQualifier.getBytes(), timeT, value.getBytes()),
             new Delete(rowKey.getBytes())
                 .addColumns(colFamily2.getBytes(), colQualifier2.getBytes(), timeT));
+
+    PAssert.that(output)
+        .containsInAnyOrder(KV.of(rowKey, HashUtils.hashMutationList(expectedMutations)));
+    pipeline.run().waitUntilFinish();
+  }
+
+  @Test
+  public void skipsDeleteTimestampRange() throws Exception {
+    ChangeStreamMutation deleteCellsMutation =
+        new ChangeStreamMutationBuilder(rowKey, timeT)
+            .setCell(colFamily, colQualifier, value, timeT * 1000)
+            .deleteCells(colFamily2, colQualifier2, timeT , timeT + 1)
+            .build();
+
+    PCollection<KV<String, List<String>>> output =
+        pipeline
+            .apply(
+                "Create change stream mutations",
+                Create.of(KV.of(ByteString.copyFromUtf8(rowKey), deleteCellsMutation)))
+            .apply(
+                "Convert change stream mutations to hbase mutations",
+                ChangeStreamToRowMutations.convertChangeStream())
+            .apply("Hash hbase mutation for comparison purposes", new HashHbaseRowMutations());
+
+    List<Mutation> expectedMutations =
+        Arrays.asList(
+            new Put(rowKey.getBytes())
+                .addColumn(colFamily.getBytes(), colQualifier.getBytes(), timeT, value.getBytes()));
 
     PAssert.that(output)
         .containsInAnyOrder(KV.of(rowKey, HashUtils.hashMutationList(expectedMutations)));

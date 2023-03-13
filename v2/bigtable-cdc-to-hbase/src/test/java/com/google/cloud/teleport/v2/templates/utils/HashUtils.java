@@ -44,6 +44,9 @@ public class HashUtils {
    */
   public static void assertRowMutationsEquals(RowMutations rowMutationA, RowMutations rowMutationB)
       throws Exception {
+    if (rowMutationA == null || rowMutationB == null) {
+      Assert.assertEquals(rowMutationA, rowMutationB);
+    }
     Assert.assertEquals(new String(rowMutationA.getRow()), new String(rowMutationB.getRow()));
     Assert.assertEquals(
         hashMutationList(rowMutationA.getMutations()),
