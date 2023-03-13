@@ -187,21 +187,12 @@ public class HbaseRowMutationIO {
 
       @StartBundle
       public void startBundle(StartBundleContext c) throws IOException {
-
-        // TODO: swap out mutator
-        // https://stackoverflow.com/questions/45865388/hbase-bufferedmutator-vs-putlist-performance
-        //  because there's no ordering guarantees
-        // BufferedMutatorParams params = new BufferedMutatorParams(TableName.valueOf(tableId));
-        // mutator = connection.getBufferedMutator(params);
         table = connection.getTable(TableName.valueOf(tableId));
         recordsWritten = 0;
       }
 
       @FinishBundle
       public void finishBundle() throws Exception {
-        // table.close();
-        // mutator.flush();
-
         if (table != null) {
           table.close();
           table = null;
@@ -212,10 +203,6 @@ public class HbaseRowMutationIO {
 
       @Teardown
       public void tearDown() throws Exception {
-        // if (mutator != null) {
-        //   mutator.close();
-        //   mutator = null;
-        // }
 
         if (table != null) {
           table.close();
@@ -230,13 +217,9 @@ public class HbaseRowMutationIO {
         RowMutations mutations = c.element().getValue();
 
         try {
-          // TODO: remove below
-          // https://stackoverflow.com/questions/45865388/hbase-bufferedmutator-vs-putlist-performance
-          //  We use BufferedMutator to batch async calls to Hbase for better throughput.
-          // mutator.mutate(mutations.getMutations());
+          // Use Table instead of BufferedMutator to preserve mutation-ordering
           table.mutateRow(mutations);
         } catch (Exception e) {
-          // TODO: simplify warning later.
           throw new Exception(
               (String.join(
                   " ",
@@ -257,6 +240,7 @@ public class HbaseRowMutationIO {
         }
 
         Metrics.counter(HbaseRowMutationIO.class, "mutations_written_to_hbase").inc();
+        // TODO: change this back to PDone when moving to HbaseIO
         c.output(1); // Dummy output so that we can get Dataflow stats for throughput.
       }
 
@@ -269,7 +253,6 @@ public class HbaseRowMutationIO {
 
       private HbaseSharedConnection hbaseSharedConnection;
       private transient Connection connection;
-      private transient BufferedMutator mutator;
       private transient Table table;
     }
   }
