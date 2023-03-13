@@ -23,7 +23,7 @@ import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
+/** Encloses static class to share a single connection to a Hbase cluster per dataflow worker. */
 public class HbaseSharedConnection implements Serializable {
   private static final long serialVersionUID = 5252999807656940415L;
   private static final Logger LOG = LoggerFactory.getLogger(HbaseSharedConnection.class);
@@ -48,7 +48,8 @@ public class HbaseSharedConnection implements Serializable {
      * @return Hbase connection
      * @throws IOException
      */
-    public static synchronized Connection getOrCreate(Configuration configuration) throws IOException {
+    public static synchronized Connection getOrCreate(Configuration configuration)
+        throws IOException {
       if (connection == null || connection.isClosed()) {
         forceCreate(configuration);
       }
@@ -58,16 +59,18 @@ public class HbaseSharedConnection implements Serializable {
 
     /**
      * Forcibly create new connection.
+     *
      * @param configuration
      * @throws IOException
      */
-    public static synchronized void forceCreate(Configuration configuration) throws  IOException {
+    public static synchronized void forceCreate(Configuration configuration) throws IOException {
       connection = ConnectionFactory.createConnection(configuration);
       connectionCount = 0;
     }
 
     /**
      * Decrement connector count and close connection if no more connector is using it.
+     *
      * @throws IOException
      */
     public static synchronized void close() throws IOException {
@@ -76,13 +79,13 @@ public class HbaseSharedConnection implements Serializable {
         forceClose();
       }
       if (connectionCount < 0) {
-        LOG.warn(
-            "Connection count at " + connectionCount + ", should not be possible");
+        LOG.warn("Connection count at " + connectionCount + ", should not be possible");
       }
     }
 
     /**
      * Forcibly close connection.
+     *
      * @throws IOException
      */
     public static synchronized void forceClose() throws IOException {
@@ -95,10 +98,8 @@ public class HbaseSharedConnection implements Serializable {
 
     public String getDebugString() {
       return String.format(
-          "Connection down: %s\n"
-              + "Connectors: %s\n",
-          (connection == null || connection.isClosed()),
-          connectionCount);
+          "Connection down: %s\n" + "Connectors: %s\n",
+          (connection == null || connection.isClosed()), connectionCount);
     }
 
     public int getConnectionCount() {

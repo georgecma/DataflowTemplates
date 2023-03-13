@@ -37,7 +37,6 @@ import org.apache.beam.sdk.values.PCollection;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.BufferedMutator;
-import org.apache.hadoop.hbase.client.BufferedMutatorParams;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.RowMutations;
 import org.apache.hadoop.hbase.client.Table;
@@ -176,7 +175,7 @@ public class HbaseRowMutationIO {
     private class WriteRowMutationsFn extends DoFn<KV<byte[], RowMutations>, Integer> {
 
       public WriteRowMutationsFn(
-          WriteRowMutations writeRowMutations) { //, HbaseSharedConnection hbaseSharedConnection) {
+          WriteRowMutations writeRowMutations) { // , HbaseSharedConnection hbaseSharedConnection) {
         checkNotNull(writeRowMutations.tableId, "tableId");
         checkNotNull(writeRowMutations.configuration, "configuration");
       }
