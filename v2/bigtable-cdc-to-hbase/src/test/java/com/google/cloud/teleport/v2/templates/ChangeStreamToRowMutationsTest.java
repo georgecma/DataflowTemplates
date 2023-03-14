@@ -133,7 +133,7 @@ public class ChangeStreamToRowMutationsTest {
     ChangeStreamMutation deleteCellsMutation =
         new ChangeStreamMutationBuilder(rowKey, timeT)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
-            .deleteCells(colFamily2, colQualifier2, timeT , timeT + 1)
+            .deleteCells(colFamily2, colQualifier2, timeT, timeT + 1)
             .build();
 
     PCollection<KV<String, List<String>>> output =

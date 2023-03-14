@@ -87,11 +87,9 @@ public class HbaseRowMutationIO {
       checkNotNull(tableId, "withTableId() is required");
       checkArgument(!tableId.isEmpty(), "withTableId() cannot be empty");
 
-      // HbaseSharedConnection hbaseSharedConnection = new HbaseSharedConnection();
-
       return input.apply(ParDo.of(new WriteRowMutationsFn(this)));
       // TODO: change this back to PDone later.
-      // // return PDone.in(input.getPipeline());
+      // return PDone.in(input.getPipeline());
     }
 
     @Override

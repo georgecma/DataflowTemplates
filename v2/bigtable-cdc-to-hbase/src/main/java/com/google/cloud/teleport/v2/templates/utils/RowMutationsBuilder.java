@@ -197,7 +197,6 @@ public class RowMutationsBuilder {
       if (cell != null) {
         cellList.add(cell);
       }
-
     }
     return cellList;
   }
@@ -255,13 +254,14 @@ public class RowMutationsBuilder {
     } else if (cellStartTs > 0) {
       // Bigtable allows range deletion, Hbase does not. If we encounter a range deletion operation,
       // then log a warning and approximate it to delete from 0 to range end
-      LOG.warn(String.format("Skipping incompatible delete timestamp range operation for %s, %s:%s, %s-%s.",
-          Bytes.toString(hbaseRowKey),
-          deleteCells.getFamilyName(),
-          deleteCells.getQualifier(),
-          deleteCells.getTimestampRange().getStart(),
-          deleteCells.getTimestampRange().getEnd())
-        );
+      LOG.warn(
+          String.format(
+              "Skipping incompatible delete timestamp range operation for %s, %s:%s, %s-%s.",
+              Bytes.toString(hbaseRowKey),
+              deleteCells.getFamilyName(),
+              deleteCells.getQualifier(),
+              deleteCells.getTimestampRange().getStart(),
+              deleteCells.getTimestampRange().getEnd()));
       Metrics.counter(RowMutationsBuilder.class, "delete_timestamp_range_dropped").inc();
       return null;
     }

@@ -96,7 +96,7 @@ public class RowMutationsBuilderTest {
         new ChangeStreamMutationBuilder(rowKey, timeT * 1000)
             .setCell(colFamily, colQualifier, value, timeT * 1000)
             // Delete operation should be filtered out because it has a timestamp range
-            .deleteCells(colFamily2, colQualifier2, timeT*1000, (timeT+1) * 1000)
+            .deleteCells(colFamily2, colQualifier2, timeT * 1000, (timeT + 1) * 1000)
             .build();
 
     RowMutations convertedMutations = RowMutationsBuilder.buildRowMutations(changeStreamMutation);
@@ -107,7 +107,10 @@ public class RowMutationsBuilderTest {
                 Arrays.asList(
                     new Put(rowKey.getBytes())
                         .addColumn(
-                            colFamily.getBytes(), colQualifier.getBytes(), timeT, value.getBytes())));
+                            colFamily.getBytes(),
+                            colQualifier.getBytes(),
+                            timeT,
+                            value.getBytes())));
     HashUtils.assertRowMutationsEquals(convertedMutations, expectedMutations);
   }
 
