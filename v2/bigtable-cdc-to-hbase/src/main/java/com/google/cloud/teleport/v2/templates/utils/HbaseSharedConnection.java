@@ -23,87 +23,84 @@ import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Encloses static class to share a single connection to a Hbase cluster per dataflow worker. */
+/**
+ * Static connection shared between all threads of a worker. Connectors are not persisted between
+ * worker machines as Connection serialization is not implemented. Each worker will create its own
+ * connection and share it between all its threads.
+ */
 public class HbaseSharedConnection implements Serializable {
   private static final long serialVersionUID = 5252999807656940415L;
   private static final Logger LOG = LoggerFactory.getLogger(HbaseSharedConnection.class);
 
+
+  // Transient connection to be initialized per worker
+  private static Connection connection;
+  // Number of threads using the shared connection, close connection if connectionCount goes to 0
+  private static int connectionCount;
+
   /**
-   * Static connection shared between all threads of a worker. Connectors are not persisted between
-   * worker machines as Connection serialization is not implemented. Each worker will create its own
-   * connection and share it between all its threads.
+   * Create or return existing Hbase connection.
+   *
+   * @param configuration Hbase configuration
+   * @return Hbase connection
+   * @throws IOException
    */
-  public static class HbaseConnection implements Serializable {
-    private static final long serialVersionUID = 5252999807653210415L;
-
-    // Transient connection to be initialized per worker
-    private static Connection connection;
-    // Number of threads using the shared connection, close connection if connectionCount goes to 0
-    private static int connectionCount;
-
-    /**
-     * Create or return existing Hbase connection.
-     *
-     * @param configuration Hbase configuration
-     * @return Hbase connection
-     * @throws IOException
-     */
-    public static synchronized Connection getOrCreate(Configuration configuration)
-        throws IOException {
-      if (connection == null || connection.isClosed()) {
-        forceCreate(configuration);
-      }
-      connectionCount++;
-      return connection;
+  public static synchronized Connection getOrCreate(Configuration configuration)
+      throws IOException {
+    if (connection == null || connection.isClosed()) {
+      forceCreate(configuration);
     }
+    connectionCount++;
+    return connection;
+  }
 
-    /**
-     * Forcibly create new connection.
-     *
-     * @param configuration
-     * @throws IOException
-     */
-    public static synchronized void forceCreate(Configuration configuration) throws IOException {
-      connection = ConnectionFactory.createConnection(configuration);
-      connectionCount = 0;
+  /**
+   * Forcibly create new connection.
+   *
+   * @param configuration
+   * @throws IOException
+   */
+  public static synchronized void forceCreate(Configuration configuration) throws IOException {
+    connection = ConnectionFactory.createConnection(configuration);
+    connectionCount = 0;
+  }
+
+  /**
+   * Decrement connector count and close connection if no more connector is using it.
+   *
+   * @throws IOException
+   */
+  public static synchronized void close() throws IOException {
+    connectionCount--;
+    if (connectionCount == 0) {
+      forceClose();
     }
-
-    /**
-     * Decrement connector count and close connection if no more connector is using it.
-     *
-     * @throws IOException
-     */
-    public static synchronized void close() throws IOException {
-      connectionCount--;
-      if (connectionCount == 0) {
-        forceClose();
-      }
-      if (connectionCount < 0) {
-        LOG.warn("Connection count at " + connectionCount + ", should not be possible");
-      }
-    }
-
-    /**
-     * Forcibly close connection.
-     *
-     * @throws IOException
-     */
-    public static synchronized void forceClose() throws IOException {
-      if (connection != null) {
-        connection.close();
-        connection = null;
-        connectionCount = 0;
-      }
-    }
-
-    public String getDebugString() {
-      return String.format(
-          "Connection down: %s\n" + "Connectors: %s\n",
-          (connection == null || connection.isClosed()), connectionCount);
-    }
-
-    public int getConnectionCount() {
-      return connectionCount;
+    if (connectionCount < 0) {
+      LOG.warn("Connection count at " + connectionCount + ", should not be possible");
     }
   }
+
+  /**
+   * Forcibly close connection.
+   *
+   * @throws IOException
+   */
+  public static synchronized void forceClose() throws IOException {
+    if (connection != null) {
+      connection.close();
+      connection = null;
+      connectionCount = 0;
+    }
+  }
+
+  public String getDebugString() {
+    return String.format(
+        "Connection down: %s\n" + "Connectors: %s\n",
+        (connection == null || connection.isClosed()), connectionCount);
+  }
+
+  public int getConnectionCount() {
+    return connectionCount;
+  }
 }
+

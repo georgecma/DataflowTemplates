@@ -180,7 +180,7 @@ public class HbaseRowMutationIO {
 
       @Setup
       public void setup() throws Exception {
-        connection = HbaseSharedConnection.HbaseConnection.getOrCreate(configuration);
+        connection = HbaseSharedConnection.getOrCreate(configuration);
       }
 
       @StartBundle
@@ -207,7 +207,7 @@ public class HbaseRowMutationIO {
           table = null;
         }
 
-        HbaseSharedConnection.HbaseConnection.close();
+        HbaseSharedConnection.close();
       }
 
       @ProcessElement
