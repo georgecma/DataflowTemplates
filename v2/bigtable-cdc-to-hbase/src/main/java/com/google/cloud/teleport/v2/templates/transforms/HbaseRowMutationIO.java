@@ -18,7 +18,7 @@ package com.google.cloud.teleport.v2.templates.transforms;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.cloud.teleport.v2.templates.utils.HbaseSharedConnection;
+import com.google.cloud.teleport.v2.templates.utils.HBaseSharedConnection;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -36,7 +36,6 @@ import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.TableName;
-import org.apache.hadoop.hbase.client.BufferedMutator;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.RowMutations;
 import org.apache.hadoop.hbase.client.Table;
@@ -180,7 +179,7 @@ public class HbaseRowMutationIO {
 
       @Setup
       public void setup() throws Exception {
-        connection = HbaseSharedConnection.getOrCreate(configuration);
+        connection = HBaseSharedConnection.getOrCreate(configuration);
       }
 
       @StartBundle
@@ -207,7 +206,7 @@ public class HbaseRowMutationIO {
           table = null;
         }
 
-        HbaseSharedConnection.close();
+        HBaseSharedConnection.close();
       }
 
       @ProcessElement

@@ -1,17 +1,19 @@
 /*
- * Copyright (C) 2023 Google LLC
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.google.cloud.teleport.v2.templates.utils;
 
@@ -28,13 +30,13 @@ import org.slf4j.LoggerFactory;
  * worker machines as Connection serialization is not implemented. Each worker will create its own
  * connection and share it between all its threads.
  */
-public class HbaseSharedConnection implements Serializable {
+public class HBaseSharedConnection implements Serializable {
   private static final long serialVersionUID = 5252999807656940415L;
-  private static final Logger LOG = LoggerFactory.getLogger(HbaseSharedConnection.class);
-
+  private static final Logger LOG = LoggerFactory.getLogger(HBaseSharedConnection.class);
 
   // Transient connection to be initialized per worker
-  private static Connection connection;
+  // Wrap Connection in array because static Connection cannot be non-null in beam repo
+  private static Connection[] connection = new Connection[1];
   // Number of threads using the shared connection, close connection if connectionCount goes to 0
   private static int connectionCount;
 
@@ -47,11 +49,11 @@ public class HbaseSharedConnection implements Serializable {
    */
   public static synchronized Connection getOrCreate(Configuration configuration)
       throws IOException {
-    if (connection == null || connection.isClosed()) {
+    if (connection[0] == null || connection[0].isClosed()) {
       forceCreate(configuration);
     }
     connectionCount++;
-    return connection;
+    return connection[0];
   }
 
   /**
@@ -61,7 +63,7 @@ public class HbaseSharedConnection implements Serializable {
    * @throws IOException
    */
   public static synchronized void forceCreate(Configuration configuration) throws IOException {
-    connection = ConnectionFactory.createConnection(configuration);
+    connection[0] = ConnectionFactory.createConnection(configuration);
     connectionCount = 0;
   }
 
@@ -87,8 +89,7 @@ public class HbaseSharedConnection implements Serializable {
    */
   public static synchronized void forceClose() throws IOException {
     if (connection != null) {
-      connection.close();
-      connection = null;
+      connection[0].close();
       connectionCount = 0;
     }
   }
@@ -96,11 +97,10 @@ public class HbaseSharedConnection implements Serializable {
   public String getDebugString() {
     return String.format(
         "Connection down: %s\n" + "Connectors: %s\n",
-        (connection == null || connection.isClosed()), connectionCount);
+        (connection[0] == null || connection[0].isClosed()), connectionCount);
   }
 
   public int getConnectionCount() {
     return connectionCount;
   }
 }
-
