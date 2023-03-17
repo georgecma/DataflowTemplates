@@ -303,4 +303,27 @@ public class BigtableToHbasePipelineIT extends TemplateTestBase {
 
     Assert.assertEquals(value, HbaseUtils.getCell(hbaseTable, rowKey, colFamily, colQualifier));
   }
+
+  @Test
+  public void testDryRun() throws Exception {
+    // Set dry run to true, reset it back to false after the run completes
+    pipelineOptions.setDryRunEnabled(true);
+    RowMutation setCell =
+        RowMutation.create(pipelineOptions.getTableId(), rowKey)
+            .setCell(colFamily, colQualifier, value);
+    bigtableResourceManager.write(setCell);
+
+    PipelineResult pipelineResult =
+        BigtableToHbasePipeline.bigtableToHbasePipeline(
+            pipelineOptions, hBaseTestingUtility.getConfiguration());
+
+    try {
+      pipelineResult.waitUntilFinish();
+    } catch (Exception e) {
+      throw new Exception("Error: pipeline could not finish");
+    }
+    pipelineOptions.setDryRunEnabled(false);
+
+    Assert.assertTrue(HbaseUtils.getRowResult(hbaseTable, rowKey).isEmpty());
+  }
 }

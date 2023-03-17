@@ -32,6 +32,8 @@ import org.apache.beam.sdk.io.gcp.bigtable.BigtableIO;
 import org.apache.beam.sdk.options.Default;
 import org.apache.beam.sdk.options.ExperimentalOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.values.KV;
+import org.apache.beam.sdk.values.PCollection;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.client.RowMutations;
@@ -170,6 +172,15 @@ public class BigtableToHbasePipeline {
     String getEndTimestamp();
 
     void setEndTimestamp(String startTimestamp);
+
+    @TemplateParameter.Boolean(
+        optional = true,
+        description = "Dry run",
+        helpText = "When dry run is enabled, pipeline will not write to Hbase")
+    @Default.Boolean(false)
+    boolean getDryRunEnabled();
+
+    void setDryRunEnabled(boolean dryRunEnabled);
   }
 
   /**
@@ -204,28 +215,36 @@ public class BigtableToHbasePipeline {
         "to",
         endTimestamp.toString());
 
-    pipeline
-        .apply(
-            "Read Change Stream",
-            BigtableIO.readChangeStream()
-                .withProjectId(pipelineOptions.getBigtableProjectId())
-                .withInstanceId(pipelineOptions.getInstanceId())
-                .withTableId(pipelineOptions.getTableId())
-                .withAppProfileId(pipelineOptions.getAppProfileId())
-                .withStartTime(startTimestamp)
-                .withEndTime(endTimestamp))
-        .apply(
-            "Convert CDC mutation to HBase mutation",
-            ChangeStreamToRowMutations.convertChangeStream()
-                .withBidirectionalReplication(
-                    pipelineOptions.getBidirectionalReplicationEnabled(),
-                    pipelineOptions.getCbtQualifier(),
-                    pipelineOptions.getHbaseQualifier()))
-        .apply(
-            "Write row mutations to HBase",
-            HbaseRowMutationIO.writeRowMutations()
-                .withConfiguration(hbaseConf)
-                .withTableId(pipelineOptions.getTableId()));
+    PCollection<KV<byte[], RowMutations>> convertedMutations =
+        pipeline
+            .apply(
+                "Read Change Stream",
+                BigtableIO.readChangeStream()
+                    .withProjectId(pipelineOptions.getBigtableProjectId())
+                    .withInstanceId(pipelineOptions.getInstanceId())
+                    .withTableId(pipelineOptions.getTableId())
+                    .withAppProfileId(pipelineOptions.getAppProfileId())
+                    .withStartTime(startTimestamp)
+                    .withEndTime(endTimestamp))
+            .apply(
+                "Convert CDC mutation to HBase mutation",
+                ChangeStreamToRowMutations.convertChangeStream()
+                    .withBidirectionalReplication(
+                        pipelineOptions.getBidirectionalReplicationEnabled(),
+                        pipelineOptions.getCbtQualifier(),
+                        pipelineOptions.getHbaseQualifier()));
+
+    // Write to Hbase if dry run mode is not enabled
+    if (pipelineOptions.getDryRunEnabled()) {
+      LOG.info("Dry run mode enabled, not writing to Hbase.");
+    } else {
+      convertedMutations.apply(
+          "Write row mutations to HBase",
+          HbaseRowMutationIO.writeRowMutations()
+              .withConfiguration(hbaseConf)
+              .withTableId(pipelineOptions.getTableId()));
+    }
+
     return pipeline.run();
   }
 
