@@ -20,8 +20,6 @@ import com.google.cloud.teleport.metadata.Template;
 import com.google.cloud.teleport.metadata.TemplateCategory;
 import com.google.cloud.teleport.metadata.TemplateParameter;
 import com.google.cloud.teleport.v2.templates.transforms.ChangeStreamToRowMutations;
-import com.google.cloud.teleport.v2.templates.transforms.HbaseRowMutationIO;
-import com.google.cloud.teleport.v2.templates.utils.RowMutationsCoder;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +27,7 @@ import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.io.gcp.bigtable.BigtableIO;
+import org.apache.beam.sdk.io.hbase.HBaseIO;
 import org.apache.beam.sdk.options.Default;
 import org.apache.beam.sdk.options.ExperimentalOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
@@ -190,14 +189,14 @@ public class BigtableCdcToHbase {
    * @param hbaseConf
    * @return PipelineResult
    */
-  public static PipelineResult bigtableToHbasePipeline(
+  public static PipelineResult runPipeline(
       BigtableToHbasePipelineOptions pipelineOptions, Configuration hbaseConf) {
 
     Pipeline pipeline = Pipeline.create(pipelineOptions);
 
     // Set coder for RowMutations class.
     // RowMutations is not serializable so we provide a customer serializer for the class.
-    pipeline.getCoderRegistry().registerCoderForClass(RowMutations.class, RowMutationsCoder.of());
+    // pipeline.getCoderRegistry().registerCoderForClass(RowMutations.class, RowMutationsCoder.of());
 
     // Retrieve and parse the start / end timestamps.
     Timestamp startTimestamp =
@@ -240,8 +239,7 @@ public class BigtableCdcToHbase {
     } else {
       convertedMutations.apply(
           "Write row mutations to HBase",
-          // HBaseIO.writeRowMutatations()
-          HbaseRowMutationIO.writeRowMutations()
+          HBaseIO.writeRowMutations()
               .withConfiguration(hbaseConf)
               .withTableId(pipelineOptions.getTableId()));
     }
@@ -278,6 +276,6 @@ public class BigtableCdcToHbase {
             + pipelineOptions.getHbaseZookeeperQuorumPort());
     hbaseConf.set("hbase.rootdir", pipelineOptions.getHbaseRootDir());
 
-    bigtableToHbasePipeline(pipelineOptions, hbaseConf);
+    runPipeline(pipelineOptions, hbaseConf);
   }
 }

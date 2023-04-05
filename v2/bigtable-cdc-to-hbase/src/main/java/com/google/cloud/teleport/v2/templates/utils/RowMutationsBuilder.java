@@ -38,7 +38,7 @@ import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Helper class to build rowMutations objects from change stream mutations. */
+/** Helper class to build {@link RowMutations} objects from {@link ChangeStreamMutation}. */
 public class RowMutationsBuilder {
   private static final Logger LOG = LoggerFactory.getLogger(RowMutationsBuilder.class);
 
@@ -144,7 +144,7 @@ public class RowMutationsBuilder {
   }
 
   /**
-   * Converts Bigtable ChangeStreamMutation to HBase RowMutations object.
+   * Converts Bigtable {@link ChangeStreamMutation} to HBase {@link RowMutations}.
    *
    * @param mutation changeStreamMutation
    * @return Hbase RowMutations object

@@ -33,7 +33,6 @@ import com.google.cloud.teleport.v2.templates.transforms.ChangeStreamToRowMutati
 import com.google.cloud.teleport.v2.templates.utils.HashUtils;
 import com.google.cloud.teleport.v2.templates.utils.HashUtils.HashHbaseRowMutations;
 import com.google.cloud.teleport.v2.templates.utils.HbaseUtils;
-import com.google.cloud.teleport.v2.templates.utils.RowMutationsCoder;
 import com.google.protobuf.ByteString;
 import java.util.Arrays;
 import java.util.List;
@@ -65,7 +64,7 @@ public class ChangeStreamToRowMutationsTest {
   @Before
   public void setUp() {
     // Provide custom encoder to non-serializable RowMutations class.
-    pipeline.getCoderRegistry().registerCoderForClass(RowMutations.class, RowMutationsCoder.of());
+    // pipeline.getCoderRegistry().registerCoderForClass(RowMutations.class, RowMutationsCoder.of());
   }
 
   @Test
