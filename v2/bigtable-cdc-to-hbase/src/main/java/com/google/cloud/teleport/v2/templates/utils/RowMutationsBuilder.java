@@ -34,7 +34,6 @@ import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.RowMutations;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -159,12 +158,6 @@ public class RowMutationsBuilder {
     // Hbase by using the change stream commit timestamp.
     com.google.protobuf.Timestamp commitTimestamp = mutation.getCommitTimestamp();
     long msTimestamp = Timestamps.toMillis(commitTimestamp);
-
-    // Get current time in milliseconds and report the difference between commit time and read time.
-    // This time approximates replication delay. This timestamp is not used during enrichment.
-    long now = Time.now();
-    Metrics.distribution(RowMutationsBuilder.class, "cdc_commit_to_process_delay")
-        .update(now - msTimestamp);
 
     byte[] hbaseRowKey = mutation.getRowKey().toByteArray();
 
