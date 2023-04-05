@@ -17,11 +17,12 @@ package com.google.cloud.teleport.it.bigtable;
 
 import com.google.cloud.bigtable.data.v2.models.Row;
 import com.google.cloud.bigtable.data.v2.models.RowMutation;
+import com.google.cloud.teleport.it.common.ResourceManager;
 import com.google.common.collect.ImmutableList;
 import org.threeten.bp.Duration;
 
 /** Interface for managing bigtable resources in integration tests. */
-public interface BigtableResourceManager {
+public interface BigtableResourceManager extends ResourceManager {
 
   /**
    * Creates a Bigtable instance in which all clusters, nodes and tables will exist.
@@ -32,6 +33,20 @@ public interface BigtableResourceManager {
    *     Bigtable.
    */
   void createInstance(Iterable<BigtableResourceManagerCluster> clusters);
+
+  /**
+   * Return the instance ID this Resource Manager uses to create and manage tables in.
+   *
+   * @return the instance ID.
+   */
+  String getInstanceId();
+
+  /**
+   * Returns the project ID this Resource Manager is configured to operate on.
+   *
+   * @return the project ID.
+   */
+  String getProjectId();
 
   /**
    * Creates a table within the current instance given a table ID and a collection of column family
@@ -45,10 +60,7 @@ public interface BigtableResourceManager {
    * @param columnFamilies A collection of column family names for the table.
    * @throws BigtableResourceManagerException if there is an error creating the table in Bigtable.
    */
-  void createTable(String tableId, Iterable<String> columnFamilies)
-      throws BigtableResourceManagerException;
-
-  void createTable(String tableId, BigtableTableSpec spec) throws BigtableResourceManagerException;
+  void createTable(String tableId, Iterable<String> columnFamilies);
 
   /**
    * Creates a table within the current instance given a table ID and a collection of column family
@@ -64,8 +76,7 @@ public interface BigtableResourceManager {
    * @param maxAge Sets the maximum age the columns can persist before being garbage collected.
    * @throws BigtableResourceManagerException if there is an error creating the table in Bigtable.
    */
-  void createTable(String tableId, Iterable<String> columnFamilies, Duration maxAge)
-      throws BigtableResourceManagerException;
+  void createTable(String tableId, Iterable<String> columnFamilies, Duration maxAge);
 
   /**
    * Writes a given row into a table. This method requires {@link

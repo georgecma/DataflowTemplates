@@ -120,20 +120,10 @@ public class DefaultBigtableResourceManager implements BigtableResourceManager {
     return new DefaultBigtableResourceManager.Builder(testId, projectId);
   }
 
-  /**
-   * Returns the project ID this Resource Manager is configured to operate on.
-   *
-   * @return the project ID.
-   */
   public String getProjectId() {
     return projectId;
   }
 
-  /**
-   * Return the instance ID this Resource Manager uses to create and manage tables in.
-   *
-   * @return the instance ID.
-   */
   public String getInstanceId() {
     return instanceId;
   }
@@ -197,12 +187,18 @@ public class DefaultBigtableResourceManager implements BigtableResourceManager {
   }
 
   @Override
-  public synchronized void createTable(String tableId, BigtableTableSpec spec) {
+  public synchronized void createTable(String tableId, Iterable<String> columnFamilies) {
+    createTable(tableId, columnFamilies, Duration.ofHours(1));
+  }
+
+  @Override
+  public synchronized void createTable(
+      String tableId, Iterable<String> columnFamilies, Duration maxAge) {
     // Check table ID
     checkValidTableId(tableId);
 
     // Check for at least one column family
-    if (!spec.getColumnFamilies().iterator().hasNext()) {
+    if (!columnFamilies.iterator().hasNext()) {
       throw new IllegalArgumentException(
           "There must be at least one column family specified when creating a table.");
     }
@@ -226,12 +222,11 @@ public class DefaultBigtableResourceManager implements BigtableResourceManager {
         bigtableResourceManagerClientFactory.bigtableTableAdminClient()) {
       if (!tableAdminClient.exists(tableId)) {
         CreateTableRequest createTableRequest = CreateTableRequest.of(tableId);
-
-        for (String columnFamily : spec.getColumnFamilies()) {
-          createTableRequest.addFamily(columnFamily, GCRules.GCRULES.maxAge(spec.getMaxAge()));
+        for (String columnFamily : columnFamilies) {
+          createTableRequest.addFamily(columnFamily, GCRules.GCRULES.maxAge(maxAge));
         }
-        // TODO: Set CDC enabled
         tableAdminClient.createTable(createTableRequest);
+
       } else {
         throw new IllegalStateException(
             "Table " + tableId + " already exists for instance " + instanceId + ".");
@@ -241,23 +236,6 @@ public class DefaultBigtableResourceManager implements BigtableResourceManager {
     }
 
     LOG.info("Successfully created table {}.{}", instanceId, tableId);
-  }
-
-  @Override
-  public synchronized void createTable(String tableId, Iterable<String> columnFamilies) {
-    BigtableTableSpec spec = new BigtableTableSpec();
-    spec.setColumnFamilies(columnFamilies);
-    spec.setMaxAge(Duration.ofHours(1));
-    createTable(tableId, spec);
-  }
-
-  @Override
-  public synchronized void createTable(
-      String tableId, Iterable<String> columnFamilies, Duration maxAge) {
-    BigtableTableSpec spec = new BigtableTableSpec();
-    spec.setColumnFamilies(columnFamilies);
-    spec.setMaxAge(maxAge);
-    createTable(tableId, spec);
   }
 
   @Override
@@ -322,12 +300,14 @@ public class DefaultBigtableResourceManager implements BigtableResourceManager {
   @Override
   public synchronized void cleanupAll() {
     LOG.info("Attempting to cleanup manager.");
-    try (BigtableInstanceAdminClient instanceAdminClient =
-        bigtableResourceManagerClientFactory.bigtableInstanceAdminClient()) {
-      instanceAdminClient.deleteInstance(instanceId);
-      hasInstance = false;
-    } catch (Exception e) {
-      throw new BigtableResourceManagerException("Failed to delete resources.", e);
+    if (hasInstance) {
+      try (BigtableInstanceAdminClient instanceAdminClient =
+          bigtableResourceManagerClientFactory.bigtableInstanceAdminClient()) {
+        instanceAdminClient.deleteInstance(instanceId);
+        hasInstance = false;
+      } catch (Exception e) {
+        throw new BigtableResourceManagerException("Failed to delete resources.", e);
+      }
     }
 
     LOG.info("Manager successfully cleaned up.");
@@ -341,7 +321,6 @@ public class DefaultBigtableResourceManager implements BigtableResourceManager {
     private CredentialsProvider credentialsProvider;
 
     private Builder(String testId, String projectId) {
-
       this.testId = testId;
       this.projectId = projectId;
     }
