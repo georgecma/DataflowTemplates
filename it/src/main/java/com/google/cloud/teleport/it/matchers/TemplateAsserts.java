@@ -15,26 +15,29 @@
  */
 package com.google.cloud.teleport.it.matchers;
 
+import static com.google.cloud.teleport.it.matchers.RecordsSubject.bigtableRowsToRecords;
+import static com.google.cloud.teleport.it.matchers.RecordsSubject.cassandraRowsToRecords;
+import static com.google.cloud.teleport.it.matchers.RecordsSubject.datastoreResultsToRecords;
+import static com.google.cloud.teleport.it.matchers.RecordsSubject.genericRecordToRecords;
+import static com.google.cloud.teleport.it.matchers.RecordsSubject.structsToRecords;
+import static com.google.cloud.teleport.it.matchers.RecordsSubject.tableResultToRecords;
 import static com.google.common.truth.Truth.assertAbout;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.cloud.bigquery.FieldValueList;
+import com.datastax.oss.driver.api.core.cql.Row;
 import com.google.cloud.bigquery.TableResult;
+import com.google.cloud.datastore.Entity;
+import com.google.cloud.spanner.Struct;
 import com.google.cloud.teleport.it.artifacts.Artifact;
 import com.google.cloud.teleport.it.launcher.PipelineLauncher.LaunchInfo;
 import com.google.cloud.teleport.it.launcher.PipelineOperator.Result;
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import org.apache.avro.generic.GenericRecord;
 import org.jetbrains.annotations.Nullable;
 
 /** Assert utilities for Template DSL-like tests. */
 public final class TemplateAsserts {
-
-  private static TypeReference<Map<String, Object>> recordTypeReference = new TypeReference<>() {};
-
-  private static ObjectMapper objectMapper = new ObjectMapper();
 
   /**
    * Creates a {@link LaunchInfoSubject} to assert information returned from pipeline launches.
@@ -69,11 +72,65 @@ public final class TemplateAsserts {
   /**
    * Creates a {@link RecordsSubject} to assert information within a list of records.
    *
-   * @param tableResult Records in BigQuery TableResult format to use in the comparison.
+   * @param tableResult Records in BigQuery {@link TableResult} format to use in the comparison.
    * @return Truth Subject to chain assertions.
    */
   public static RecordsSubject assertThatRecords(@Nullable TableResult tableResult) {
     return assertThatRecords(tableResultToRecords(tableResult));
+  }
+
+  /**
+   * Creates a {@link RecordsSubject} to assert information within a list of records.
+   *
+   * @param rows Records in Bigtable's {@link com.google.cloud.bigtable.data.v2.models.Row} format
+   *     to use in the comparison.
+   * @param family The column family to read records from.
+   * @return Truth Subject to chain assertions.
+   */
+  public static RecordsSubject assertThatBigtableRecords(
+      @Nullable Iterable<com.google.cloud.bigtable.data.v2.models.Row> rows, String family) {
+    return assertThatRecords(bigtableRowsToRecords(rows, family));
+  }
+
+  /**
+   * Creates a {@link RecordsSubject} to assert information within a list of records.
+   *
+   * @param structs Records in Spanner {@link Struct} format to use in the comparison.
+   * @return Truth Subject to chain assertions.
+   */
+  public static RecordsSubject assertThatStructs(List<Struct> structs) {
+    return assertThatRecords(structsToRecords(structs));
+  }
+
+  /**
+   * Creates a {@link RecordsSubject} to assert information within a list of records.
+   *
+   * @param records Records in Avro/Parquet {@link GenericRecord} format to use in the comparison.
+   * @return Truth Subject to chain assertions.
+   */
+  public static RecordsSubject assertThatGenericRecords(List<GenericRecord> records) {
+    return assertThatRecords(genericRecordToRecords(records));
+  }
+
+  /**
+   * Creates a {@link RecordsSubject} to assert information within a list of records.
+   *
+   * @param rows Records in Cassandra's {@link Row} format to use in the comparison.
+   * @return Truth Subject to chain assertions.
+   */
+  public static RecordsSubject assertThatRecords(@Nullable Iterable<Row> rows) {
+    return assertThatRecords(cassandraRowsToRecords(rows));
+  }
+
+  /**
+   * Creates a {@link RecordsSubject} to assert information within a list of records.
+   *
+   * @param results Records in Datastore {@link com.google.cloud.datastore.Entity} format to use in
+   *     the comparison.
+   * @return Truth Subject to chain assertions.
+   */
+  public static RecordsSubject assertThatDatastoreRecords(Collection<Entity> results) {
+    return assertThatRecords(datastoreResultsToRecords(results));
   }
 
   /**
@@ -88,24 +145,13 @@ public final class TemplateAsserts {
   }
 
   /**
-   * Convert BigQuery {@link TableResult} to a list of maps.
+   * Creates a {@link ArtifactsSubject} to assert information for an artifact obtained from Cloud
+   * Storage.
    *
-   * @param tableResult Table Result to parse
-   * @return List of maps to use in {@link RecordsSubject}
+   * @param artifact Artifact to use in the comparisons.
+   * @return Truth Subject to chain assertions.
    */
-  private static List<Map<String, Object>> tableResultToRecords(TableResult tableResult) {
-    try {
-      List<Map<String, Object>> records = new ArrayList<>();
-
-      for (FieldValueList row : tableResult.iterateAll()) {
-        String jsonRow = row.get(0).getStringValue();
-        Map<String, Object> converted = objectMapper.readValue(jsonRow, recordTypeReference);
-        records.add(converted);
-      }
-
-      return records;
-    } catch (Exception e) {
-      throw new RuntimeException("Error converting TableResult to Records", e);
-    }
+  public static ArtifactsSubject assertThatArtifact(@Nullable Artifact artifact) {
+    return assertAbout(ArtifactsSubject.records()).that(List.of(artifact));
   }
 }

@@ -15,12 +15,16 @@
  */
 package com.google.cloud.teleport.spanner.ddl;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
+
 import com.google.cloud.spanner.Dialect;
 import com.google.cloud.spanner.ReadContext;
 import com.google.cloud.spanner.ResultSet;
 import com.google.cloud.spanner.Statement;
+import com.google.cloud.teleport.spanner.ddl.ForeignKey.ReferentialAction;
 import com.google.cloud.teleport.spanner.proto.ExportProtos.Export;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
@@ -484,12 +488,14 @@ public class InformationSchemaScanner {
                 + " WHERE t.table_catalog = '' AND t.table_schema = ''"
                 + " ORDER BY t.table_name, t.column_name");
       case POSTGRESQL:
+        // Ignore the 'allow_commit_timestamp' option since it's not user-settable in POSTGRESQL.
         return Statement.of(
             "SELECT t.table_name, t.column_name, t.option_name, t.option_type,"
                 + " t.option_value"
                 + " FROM information_schema.column_options AS t"
                 + " WHERE t.table_schema NOT IN "
                 + " ('information_schema', 'spanner_sys', 'pg_catalog')"
+                + " AND t.option_name NOT IN ('allow_commit_timestamp')"
                 + " ORDER BY t.table_name, t.column_name");
       default:
         throw new IllegalArgumentException("Unrecognized dialect: " + dialect);
@@ -507,7 +513,8 @@ public class InformationSchemaScanner {
                     + " kcu1.table_name,"
                     + " kcu1.column_name,"
                     + " kcu2.table_name,"
-                    + " kcu2.column_name"
+                    + " kcu2.column_name,"
+                    + " rc.delete_rule"
                     + " FROM information_schema.referential_constraints as rc"
                     + " INNER JOIN information_schema.key_column_usage as kcu1"
                     + " ON kcu1.constraint_catalog = rc.constraint_catalog"
@@ -533,7 +540,8 @@ public class InformationSchemaScanner {
                     + " kcu1.table_name,"
                     + " kcu1.column_name,"
                     + " kcu2.table_name,"
-                    + " kcu2.column_name"
+                    + " kcu2.column_name,"
+                    + " rc.delete_rule"
                     + " FROM information_schema.referential_constraints as rc"
                     + " INNER JOIN information_schema.key_column_usage as kcu1"
                     + " ON kcu1.constraint_catalog = rc.constraint_catalog"
@@ -563,6 +571,7 @@ public class InformationSchemaScanner {
       String column = resultSet.getString(2);
       String referencedTable = resultSet.getString(3);
       String referencedColumn = resultSet.getString(4);
+      String deleteRule = resultSet.getString(5);
       Map<String, ForeignKey.Builder> tableForeignKeys =
           foreignKeys.computeIfAbsent(table, k -> Maps.newTreeMap());
       ForeignKey.Builder foreignKey =
@@ -573,6 +582,10 @@ public class InformationSchemaScanner {
                       .name(name)
                       .table(table)
                       .referencedTable(referencedTable));
+      if (!isNullOrEmpty(deleteRule)) {
+        foreignKey.referentialAction(
+            Optional.of(ReferentialAction.getReferentialAction("DELETE", deleteRule)));
+      }
       foreignKey.columnsBuilder().add(column);
       foreignKey.referencedColumnsBuilder().add(referencedColumn);
     }

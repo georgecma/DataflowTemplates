@@ -22,6 +22,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.cloud.teleport.avro.AvroPubsubMessageRecord;
 import com.google.cloud.teleport.it.TemplateTestBase;
 import com.google.cloud.teleport.it.artifacts.Artifact;
+import com.google.cloud.teleport.it.common.ResourceManagerUtils;
 import com.google.cloud.teleport.it.launcher.PipelineLauncher.LaunchConfig;
 import com.google.cloud.teleport.it.launcher.PipelineLauncher.LaunchInfo;
 import com.google.cloud.teleport.it.launcher.PipelineOperator.Result;
@@ -52,31 +53,31 @@ import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Integration test for {@link PubsubToAvro} PubSub Subscription to Bigquery. */
+/** Integration test for {@link PubsubToAvro} PubSub to Avro. */
 // SkipDirectRunnerTest: PubsubIO doesn't trigger panes on the DirectRunner.
 @Category({TemplateIntegrationTest.class, SkipDirectRunnerTest.class})
 @TemplateIntegrationTest(value = PubsubToAvro.class, template = "Cloud_PubSub_to_Avro")
 @RunWith(JUnit4.class)
 public class PubSubToAvroIT extends TemplateTestBase {
-  private static PubsubResourceManager pubsubResourceManager;
+  private PubsubResourceManager pubsubResourceManager;
 
   @Before
   public void setUp() throws IOException {
     pubsubResourceManager =
-        DefaultPubsubResourceManager.builder(testName.getMethodName(), PROJECT)
+        DefaultPubsubResourceManager.builder(testName, PROJECT)
             .credentialsProvider(credentialsProvider)
             .build();
   }
 
   @After
   public void tearDown() {
-    pubsubResourceManager.cleanupAll();
+    ResourceManagerUtils.cleanResources(pubsubResourceManager);
   }
 
   @Test
   public void testTopicToAvro() throws IOException {
     // Arrange
-    String name = testName.getMethodName();
+    String name = testName;
     Pattern expectedFilePattern = Pattern.compile(".*topic-output-.*");
     TopicName topic = pubsubResourceManager.createTopic("input-topic");
 
@@ -92,8 +93,6 @@ public class PubSubToAvroIT extends TemplateTestBase {
 
     ImmutableSet<String> messages =
         ImmutableSet.of("message1-" + name, "message2-" + name, "message3-" + name);
-    messages.forEach(
-        m -> pubsubResourceManager.publish(topic, ImmutableMap.of(), ByteString.copyFromUtf8(m)));
 
     AtomicReference<List<Artifact>> artifacts = new AtomicReference<>();
     Result result =
@@ -101,7 +100,15 @@ public class PubSubToAvroIT extends TemplateTestBase {
             .waitForConditionAndFinish(
                 createConfig(info),
                 () -> {
-                  artifacts.set(artifactClient.listArtifacts(testName, expectedFilePattern));
+
+                  // For tests that run against topics, sending repeatedly will make it work for
+                  // cases in which the on-demand subscription is created after sending messages.
+                  for (String message : messages) {
+                    pubsubResourceManager.publish(
+                        topic, ImmutableMap.of(), ByteString.copyFromUtf8(message));
+                  }
+
+                  artifacts.set(gcsClient.listArtifacts(testName, expectedFilePattern));
                   return !artifacts.get().isEmpty();
                 });
 

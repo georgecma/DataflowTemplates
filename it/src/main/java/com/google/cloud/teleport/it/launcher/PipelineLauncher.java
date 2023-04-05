@@ -25,7 +25,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
-import org.junit.rules.TestName;
+import org.apache.beam.sdk.testing.TestPipeline;
 
 /** Client for working with Cloud Dataflow. */
 public interface PipelineLauncher {
@@ -107,11 +107,11 @@ public interface PipelineLauncher {
   class LaunchConfig {
     private final String jobName;
     private final ImmutableMap<String, String> parameters;
-    private final ImmutableMap<String, String> environment;
+    private final ImmutableMap<String, Object> environment;
     @Nullable private final String specPath;
     @Nullable private final Sdk sdk;
     @Nullable private final String executable;
-    @Nullable private final String mainClassname;
+    @Nullable private final TestPipeline pipeline;
 
     private LaunchConfig(Builder builder) {
       this.jobName = builder.jobName;
@@ -120,7 +120,7 @@ public interface PipelineLauncher {
       this.specPath = builder.specPath;
       this.sdk = builder.sdk;
       this.executable = builder.executable;
-      this.mainClassname = builder.mainClassname;
+      this.pipeline = builder.pipeline;
     }
 
     public String jobName() {
@@ -131,7 +131,7 @@ public interface PipelineLauncher {
       return parameters;
     }
 
-    public ImmutableMap<String, String> environment() {
+    public ImmutableMap<String, Object> environment() {
       return environment;
     }
 
@@ -152,35 +152,31 @@ public interface PipelineLauncher {
       return executable;
     }
 
-    public String mainClassname() {
-      return mainClassname;
+    public TestPipeline pipeline() {
+      return pipeline;
     }
 
-    public static Builder builder(String jobName, String specPath) {
+    public static Builder builderWithName(String jobName, String specPath) {
       return new Builder(jobName, specPath);
     }
 
-    public static Builder builder(TestName testName, String specPath) {
-      return new Builder(createJobName(testName.getMethodName()), specPath);
+    public static Builder builder(String testName, String specPath) {
+      return new Builder(createJobName(testName), specPath);
     }
 
     public static Builder builder(String jobName) {
       return builder(jobName, null);
     }
 
-    public static Builder builder(TestName testName) {
-      return builder(testName, null);
-    }
-
     /** Builder for the {@link LaunchConfig}. */
     public static final class Builder {
       private final String jobName;
       private final String specPath;
-      private final Map<String, String> environment;
+      private final Map<String, Object> environment;
       private Map<String, String> parameters;
       private Sdk sdk;
       private String executable;
-      private String mainClassname;
+      private TestPipeline pipeline;
 
       private Builder(String jobName, String specPath) {
         this.jobName = jobName;
@@ -209,12 +205,12 @@ public interface PipelineLauncher {
       }
 
       @Nullable
-      public String getEnvironment(String key) {
-        return parameters.get(key);
+      public Object getEnvironment(String key) {
+        return environment.get(key);
       }
 
-      public Builder addEnvironment(String key, String value) {
-        parameters.put(key, value);
+      public Builder addEnvironment(String key, Object value) {
+        environment.put(key, value);
         return this;
       }
 
@@ -244,12 +240,12 @@ public interface PipelineLauncher {
       }
 
       @Nullable
-      public String getMainClassname() {
-        return mainClassname;
+      public TestPipeline getPipeline() {
+        return pipeline;
       }
 
-      public Builder setMainClassname(String mainClassname) {
-        this.mainClassname = mainClassname;
+      public Builder setPipeline(TestPipeline pipeline) {
+        this.pipeline = pipeline;
         return this;
       }
 
@@ -409,4 +405,6 @@ public interface PipelineLauncher {
    * @throws IOException if there is an issue sending the request
    */
   Map<String, Double> getMetrics(String project, String region, String jobId) throws IOException;
+
+  JobState waitUntilActive(String project, String region, String jobId) throws IOException;
 }

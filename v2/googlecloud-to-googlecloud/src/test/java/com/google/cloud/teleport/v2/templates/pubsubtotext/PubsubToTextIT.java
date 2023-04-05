@@ -22,6 +22,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.cloud.teleport.it.TemplateTestBase;
 import com.google.cloud.teleport.it.artifacts.Artifact;
+import com.google.cloud.teleport.it.common.ResourceManagerUtils;
 import com.google.cloud.teleport.it.launcher.PipelineLauncher.LaunchConfig;
 import com.google.cloud.teleport.it.launcher.PipelineLauncher.LaunchInfo;
 import com.google.cloud.teleport.it.launcher.PipelineOperator.Result;
@@ -61,25 +62,25 @@ public final class PubsubToTextIT extends TemplateTestBase {
 
   private static final String DEFAULT_WINDOW_DURATION = "10s";
 
-  private static PubsubResourceManager pubsubResourceManager;
+  private PubsubResourceManager pubsubResourceManager;
 
   @Before
   public void setup() throws IOException {
     pubsubResourceManager =
-        DefaultPubsubResourceManager.builder(testName.getMethodName(), PROJECT)
+        DefaultPubsubResourceManager.builder(testName, PROJECT)
             .credentialsProvider(credentialsProvider)
             .build();
   }
 
   @After
-  public void tearDownClass() {
-    pubsubResourceManager.cleanupAll();
+  public void tearDown() {
+    ResourceManagerUtils.cleanResources(pubsubResourceManager);
   }
 
   @Test
   public void testTopicToGcs() throws IOException {
     // Arrange
-    String messageString = String.format("msg-%s", testName.getMethodName());
+    String messageString = String.format("msg-%s", testName);
     Pattern expectedFilePattern = Pattern.compile(".*topic-output-.*");
 
     TopicName topic = pubsubResourceManager.createTopic("input");
@@ -105,7 +106,12 @@ public final class PubsubToTextIT extends TemplateTestBase {
             .waitForConditionAndFinish(
                 createConfig(info),
                 () -> {
-                  artifacts.set(artifactClient.listArtifacts(testName, expectedFilePattern));
+
+                  // For tests that run against topics, sending repeatedly will make it work for
+                  // cases in which the on-demand subscription is created after sending messages.
+                  pubsubResourceManager.publish(topic, ImmutableMap.of(), messageData);
+
+                  artifacts.set(gcsClient.listArtifacts(testName, expectedFilePattern));
                   return !artifacts.get().isEmpty();
                 });
 
@@ -123,7 +129,7 @@ public final class PubsubToTextIT extends TemplateTestBase {
   @Test
   public void testSubscriptionToGcs() throws IOException {
     // Arrange
-    String messageString = String.format("msg-%s", testName.getMethodName());
+    String messageString = String.format("msg-%s", testName);
     Pattern expectedFilePattern = Pattern.compile(".*subscription-output-.*");
 
     TopicName topic = pubsubResourceManager.createTopic("input");
@@ -152,7 +158,7 @@ public final class PubsubToTextIT extends TemplateTestBase {
             .waitForConditionAndFinish(
                 createConfig(info),
                 () -> {
-                  artifacts.set(artifactClient.listArtifacts(testName, expectedFilePattern));
+                  artifacts.set(gcsClient.listArtifacts(testName, expectedFilePattern));
                   return !artifacts.get().isEmpty();
                 });
 

@@ -146,6 +146,9 @@ public class AvroSchemaToDdlConverterTest {
             + "  \"spannerForeignKey_0\" : "
             + "  \"ALTER TABLE `Users` ADD CONSTRAINT `fk` FOREIGN KEY (`first_name`) "
             + "  REFERENCES `AllowedNames` (`first_name`)\","
+            + "  \"spannerForeignKey_1\" : "
+            + "  \"ALTER TABLE `Users` ADD CONSTRAINT `fk_odc` FOREIGN KEY (`last_name`) "
+            + "  REFERENCES `AllowedNames` (`last_name`) ON DELETE CASCADE\","
             + "  \"spannerCheckConstraint_0\" : "
             + "  \"CONSTRAINT `ck` CHECK(`first_name` != 'last_name')\""
             + "}";
@@ -183,7 +186,10 @@ public class AvroSchemaToDdlConverterTest {
                 + " ) PRIMARY KEY (`id` ASC, `gen_id` ASC, `last_name` DESC)"
                 + " CREATE INDEX `UsersByFirstName` ON `Users` (`first_name`)"
                 + " ALTER TABLE `Users` ADD CONSTRAINT `fk`"
-                + " FOREIGN KEY (`first_name`) REFERENCES `AllowedNames` (`first_name`)"));
+                + " FOREIGN KEY (`first_name`) REFERENCES `AllowedNames` (`first_name`)"
+                + " ALTER TABLE `Users` ADD CONSTRAINT `fk_odc`"
+                + " FOREIGN KEY (`last_name`) REFERENCES "
+                + "`AllowedNames` (`last_name`) ON DELETE CASCADE"));
   }
 
   @Test
@@ -266,6 +272,10 @@ public class AvroSchemaToDdlConverterTest {
             + "    \"type\" : [ \"null\", \"string\" ],"
             + "    \"sqlType\" : \"timestamp with time zone\""
             + "  }, {"
+            + "    \"name\" : \"commit_time\","
+            + "    \"type\" : [ \"null\", \"string\" ],"
+            + "    \"sqlType\" : \"spanner.commit_timestamp\""
+            + "  }, {"
             + "    \"name\" : \"date\","
             + "    \"type\" : [ \"null\", \"string\" ],"
             + "    \"sqlType\" : \"date\""
@@ -298,7 +308,11 @@ public class AvroSchemaToDdlConverterTest {
             + "   \"CREATE INDEX \\\"UsersByFirstName\\\" ON \\\"Users\\\" (\\\"first_name\\\")\", "
             + " \"spannerForeignKey_0\" :   \"ALTER TABLE \\\"Users\\\" ADD CONSTRAINT \\\"fk\\\""
             + " FOREIGN KEY (\\\"first_name\\\")   REFERENCES \\\"AllowedNames\\\""
-            + " (\\\"first_name\\\")\",  \"spannerCheckConstraint_0\" :   \"CONSTRAINT \\\"ck\\\""
+            + " (\\\"first_name\\\")\", "
+            + " \"spannerForeignKey_1\" :   \"ALTER TABLE \\\"Users\\\" ADD CONSTRAINT "
+            + "\\\"fk_odc\\\" FOREIGN KEY (\\\"last_name\\\")   REFERENCES \\\"AllowedNames\\\""
+            + " (\\\"last_name\\\") ON DELETE CASCADE\", "
+            + " \"spannerCheckConstraint_0\" :   \"CONSTRAINT \\\"ck\\\""
             + " CHECK(\\\"first_name\\\" != \\\"last_name\\\")\"}";
 
     Schema schema = new Schema.Parser().parse(avroString);
@@ -329,6 +343,7 @@ public class AvroSchemaToDdlConverterTest {
                 + " \"bytes\" bytea,"
                 + " \"text\" text,"
                 + " \"timestamptz\" timestamp with time zone,"
+                + " \"commit_time\"     spanner.commit_timestamp,"
                 + " \"date\" date,"
                 + " \"varcharArr1\"     character varying[],"
                 + " \"varcharArr2\"     character varying[],"
@@ -341,7 +356,9 @@ public class AvroSchemaToDdlConverterTest {
                 + " )"
                 + " CREATE INDEX \"UsersByFirstName\" ON \"Users\" (\"first_name\")"
                 + " ALTER TABLE \"Users\" ADD CONSTRAINT \"fk\" FOREIGN KEY (\"first_name\")"
-                + " REFERENCES \"AllowedNames\" (\"first_name\")"));
+                + " REFERENCES \"AllowedNames\" (\"first_name\")"
+                + " ALTER TABLE \"Users\" ADD CONSTRAINT \"fk_odc\" FOREIGN KEY (\"last_name\")"
+                + " REFERENCES \"AllowedNames\" (\"last_name\") ON DELETE CASCADE"));
   }
 
   @Test

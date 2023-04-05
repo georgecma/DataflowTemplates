@@ -82,9 +82,9 @@ import org.slf4j.LoggerFactory;
  * by name, filtering tables and partitions by modification time, deleting data in BigQuery after
  * export.
  *
- * <p>Please refer to <a href=
- * "https://github.com/GoogleCloudPlatform/DataflowTemplates/blob/master/v2/googlecloud-to-googlecloud/docs/DataplexBigQueryToGcs/README.md">
- * README</a> for further information.
+ * <p>Check out <a
+ * href="https://github.com/GoogleCloudPlatform/DataflowTemplates/blob/main/v2/googlecloud-to-googlecloud/README_Dataplex_BigQuery_to_GCS.md">README</a>
+ * for instructions on how to use or modify this template.
  */
 @Template(
     name = "Dataplex_BigQuery_to_GCS",
@@ -372,7 +372,17 @@ public class DataplexBigQueryToGcs {
       throws IOException {
 
     LOG.info("Resolving asset: {}", assetName);
-    GoogleCloudDataplexV1Asset asset = dataplex.getAsset(assetName);
+
+    GoogleCloudDataplexV1Asset asset;
+    try {
+      asset = dataplex.getAsset(assetName);
+    } catch (Throwable e) {
+      LOG.error("Error resolving Dataplex Asset {}", assetName, e);
+      throw e;
+    }
+
+    LOG.info("Asset {} resolved! {}", assetName, asset);
+
     checkNotNull(asset.getResourceSpec(), "Asset has no ResourceSpec.");
 
     String type = asset.getResourceSpec().getType();

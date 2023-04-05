@@ -36,14 +36,17 @@ import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.Validation;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.options.ValueProvider.NestedValueProvider;
-import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Templated pipeline to read text from TextIO, apply a javascript UDF to it, and write it to GCS.
+ * Templated pipeline to read text from TextIO, apply a JavaScript UDF to it, and write it to GCS.
+ *
+ * <p>Check out <a
+ * href="https://github.com/GoogleCloudPlatform/DataflowTemplates/blob/main/v1/README_GCS_Text_to_BigQuery.md">README</a>
+ * for instructions on how to use or modify this template.
  */
 @Template(
     name = "GCS_Text_to_BigQuery",
@@ -52,6 +55,8 @@ import org.slf4j.LoggerFactory;
     description =
         "Batch pipeline. Reads text files stored in Cloud Storage, transforms them using a JavaScript user-defined function (UDF), and outputs the result to BigQuery.",
     optionsClass = Options.class,
+    documentation =
+        "https://cloud.google.com/dataflow/docs/guides/templates/provided/cloud-storage-to-bigquery",
     contactInformation = "https://cloud.google.com/support")
 public class TextIOToBigQuery {
 
@@ -126,6 +131,8 @@ public class TextIOToBigQuery {
   private static final String NAME = "name";
   private static final String TYPE = "type";
   private static final String MODE = "mode";
+  private static final String RECORD_TYPE = "RECORD";
+  private static final String FIELDS_ENTRY = "fields";
 
   public static void main(String[] args) {
     Options options = PipelineOptionsFactory.fromArgs(args).withValidation().as(Options.class);
@@ -145,43 +152,25 @@ public class TextIOToBigQuery {
                 .withSchema(
                     NestedValueProvider.of(
                         options.getJSONPath(),
-                        new SerializableFunction<String, TableSchema>() {
+                        jsonPath -> {
+                          TableSchema tableSchema = new TableSchema();
+                          List<TableFieldSchema> fields = new ArrayList<>();
+                          SchemaParser schemaParser = new SchemaParser();
 
-                          @Override
-                          public TableSchema apply(String jsonPath) {
+                          try {
+                            JSONObject jsonSchema = schemaParser.parseSchema(jsonPath);
+                            JSONArray bqSchemaJsonArray = jsonSchema.getJSONArray(BIGQUERY_SCHEMA);
 
-                            TableSchema tableSchema = new TableSchema();
-                            List<TableFieldSchema> fields = new ArrayList<>();
-                            SchemaParser schemaParser = new SchemaParser();
-                            JSONObject jsonSchema;
-
-                            try {
-
-                              jsonSchema = schemaParser.parseSchema(jsonPath);
-
-                              JSONArray bqSchemaJsonArray =
-                                  jsonSchema.getJSONArray(BIGQUERY_SCHEMA);
-
-                              for (int i = 0; i < bqSchemaJsonArray.length(); i++) {
-                                JSONObject inputField = bqSchemaJsonArray.getJSONObject(i);
-                                TableFieldSchema field =
-                                    new TableFieldSchema()
-                                        .setName(inputField.getString(NAME))
-                                        .setType(inputField.getString(TYPE));
-
-                                if (inputField.has(MODE)) {
-                                  field.setMode(inputField.getString(MODE));
-                                }
-
-                                fields.add(field);
-                              }
-                              tableSchema.setFields(fields);
-
-                            } catch (Exception e) {
-                              throw new RuntimeException(e);
+                            for (int i = 0; i < bqSchemaJsonArray.length(); i++) {
+                              JSONObject inputField = bqSchemaJsonArray.getJSONObject(i);
+                              fields.add(convertToTableFieldSchema(inputField));
                             }
-                            return tableSchema;
+                            tableSchema.setFields(fields);
+
+                          } catch (Exception e) {
+                            throw new RuntimeException("Error parsing schema " + jsonPath, e);
                           }
+                          return tableSchema;
                         }))
                 .to(options.getOutputTable())
                 .withCreateDisposition(CreateDisposition.CREATE_IF_NEEDED)
@@ -189,5 +178,35 @@ public class TextIOToBigQuery {
                 .withCustomGcsTempLocation(options.getBigQueryLoadingTemporaryDirectory()));
 
     pipeline.run();
+  }
+
+  /**
+   * Convert a JSONObject from the Schema JSON to a TableFieldSchema. In case of RECORD, it handles
+   * the conversion recursively.
+   *
+   * @param inputField Input field to convert.
+   * @return TableFieldSchema instance to populate the schema.
+   */
+  private static TableFieldSchema convertToTableFieldSchema(JSONObject inputField) {
+    TableFieldSchema field =
+        new TableFieldSchema()
+            .setName(inputField.getString(NAME))
+            .setType(inputField.getString(TYPE));
+
+    if (inputField.has(MODE)) {
+      field.setMode(inputField.getString(MODE));
+    }
+
+    if (inputField.getString(TYPE) != null && inputField.getString(TYPE).equals(RECORD_TYPE)) {
+      List<TableFieldSchema> nestedFields = new ArrayList<>();
+      JSONArray fieldsArr = inputField.getJSONArray(FIELDS_ENTRY);
+      for (int i = 0; i < fieldsArr.length(); i++) {
+        JSONObject nestedJSON = fieldsArr.getJSONObject(i);
+        nestedFields.add(convertToTableFieldSchema(nestedJSON));
+      }
+      field.setFields(nestedFields);
+    }
+
+    return field;
   }
 }

@@ -35,6 +35,7 @@ import com.google.cloud.teleport.v2.values.FailsafeElement;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import java.nio.charset.StandardCharsets;
+import org.apache.beam.runners.dataflow.options.DataflowPipelineWorkerPoolOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.CoderRegistry;
@@ -76,78 +77,9 @@ import org.slf4j.LoggerFactory;
  *   <li>The BigQuery output table exists.
  * </ul>
  *
- * <p><b>Example Usage</b>
- *
- * <pre>
- * # Set the pipeline vars
- * export PROJECT=<project id>
- * export TEMPLATE_MODULE=googlecloud-to-googlecloud
- * export TEMPLATE_NAME=pubsub-to-bigquery
- * export BUCKET_NAME=gs://<bucket name>
- * export TARGET_GCR_IMAGE=gcr.io/${PROJECT}/${TEMPLATE_NAME}-image
- * export BASE_CONTAINER_IMAGE=gcr.io/dataflow-templates-base/java8-template-launcher-base
- * export BASE_CONTAINER_IMAGE_VERSION=latest
- * export APP_ROOT=/template/${TEMPLATE_NAME}
- * export COMMAND_SPEC=${APP_ROOT}/resources/${TEMPLATE_NAME}-command-spec.json
- * export TEMPLATE_IMAGE_SPEC=${BUCKET_NAME}/images/${TEMPLATE_NAME}-image-spec.json
- *
- * gcloud config set project ${PROJECT}
- *
- * # Build and push image to Google Container Repository
- * mvn package \
- *   -Dimage=${TARGET_GCR_IMAGE} \
- *   -Dbase-container-image=${BASE_CONTAINER_IMAGE} \
- *   -Dbase-container-image.version=${BASE_CONTAINER_IMAGE_VERSION} \
- *   -Dapp-root=${APP_ROOT} \
- *   -Dcommand-spec=${COMMAND_SPEC} \
- *   -Djib.applicationCache=/tmp/jib-cache \
- *   -am -pl ${TEMPLATE_MODULE}
- *
- * # Create and upload image spec
- * echo '{
- *  "image":"'${TARGET_GCR_IMAGE}'",
- *  "metadata":{
- *    "name":"Pub/Sub to BigQuery",
- *    "description":"Write Pub/Sub messages to BigQuery.",
- *    "parameters":[
- *        {
- *            "name":"inputSubscription",
- *            "label":"Pub/Sub subscription to read from",
- *            "paramType":"TEXT",
- *            "isOptional":true
- *        },
- *        {
- *            "name":"inputTopic",
- *            "label":"Pub/Sub topic to read from",
- *            "paramType":"TEXT",
- *            "isOptional":true
- *        },
- *        {
- *            "name":"outputTableSpec",
- *            "label":"BigQuery output table",
- *            "paramType":"TEXT",
- *            "isOptional":false
- *        },
- *        {
- *            "name":"outputDeadletterTable",
- *            "label":"Table for messages failed to reach the output table",
- *            "paramType":"TEXT",
- *            "isOptional":true
- *        }
- *    ]
- *  },
- *  "sdk_info":{"language":"JAVA"}
- * }' > image_spec.json
- * gsutil cp image_spec.json ${TEMPLATE_IMAGE_SPEC}
- * rm image_spec.json
- *
- * # Run template
- * export JOB_NAME="${TEMPLATE_MODULE}-`date +%Y%m%d-%H%M%S-%N`"
- * gcloud beta dataflow flex-template run ${JOB_NAME} \
- *       --project=${PROJECT} --region=us-central1 \
- *       --template-file-gcs-location=${TEMPLATE_IMAGE_SPEC} \
- *       --parameters inputTopic=<topic>,outputTableSpec=<output table>
- * </pre>
+ * <p>Check out <a
+ * href="https://github.com/GoogleCloudPlatform/DataflowTemplates/blob/main/v2/googlecloud-to-googlecloud/README_PubSub_to_BigQuery_Flex.md">README</a>
+ * for instructions on how to use or modify this template.
  */
 @Template(
     name = "PubSub_to_BigQuery_Flex",
@@ -198,7 +130,8 @@ public class PubSubToBigQuery {
   public interface Options
       extends PipelineOptions,
           JavascriptTextTransformerOptions,
-          BigQueryStorageApiStreamingOptions {
+          BigQueryStorageApiStreamingOptions,
+          DataflowPipelineWorkerPoolOptions {
     @TemplateParameter.BigQueryTable(
         order = 1,
         description = "BigQuery output table",
@@ -258,6 +191,9 @@ public class PubSubToBigQuery {
 
     Options options = PipelineOptionsFactory.fromArgs(args).withValidation().as(Options.class);
     BigQueryIOUtils.validateBQStorageApiOptionsStreaming(options);
+    //    options.setWorkerDiskType(
+    //
+    // "compute.googleapis.com/projects/cloud-teleport-testing/zones/us-central1-a/diskTypes/t2a-test");
 
     run(options);
   }

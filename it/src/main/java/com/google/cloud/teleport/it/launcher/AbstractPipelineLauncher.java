@@ -15,6 +15,7 @@
  */
 package com.google.cloud.teleport.it.launcher;
 
+import static com.google.cloud.teleport.it.common.RetryUtil.clientRetryPolicy;
 import static com.google.cloud.teleport.it.launcher.PipelineLauncher.JobState.FAILED;
 import static com.google.cloud.teleport.it.launcher.PipelineLauncher.JobState.PENDING_STATES;
 import static com.google.cloud.teleport.it.logging.LogStrings.formatForLogging;
@@ -25,6 +26,7 @@ import com.google.api.services.dataflow.model.Job;
 import com.google.api.services.dataflow.model.MetricUpdate;
 import com.google.cloud.teleport.it.logging.LogStrings;
 import com.google.common.base.Strings;
+import dev.failsafe.Failsafe;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -43,6 +45,7 @@ import org.slf4j.LoggerFactory;
  * launching a specific type of template.
  */
 public abstract class AbstractPipelineLauncher implements PipelineLauncher {
+
   private static final Logger LOG = LoggerFactory.getLogger(AbstractPipelineLauncher.class);
   private static final Pattern CURRENT_METRICS = Pattern.compile(".*Current.*");
 
@@ -55,34 +58,40 @@ public abstract class AbstractPipelineLauncher implements PipelineLauncher {
   @Override
   public Job getJob(String project, String region, String jobId) throws IOException {
     LOG.info("Getting the status of {} under {}", jobId, project);
-    Job job = client.projects().locations().jobs().get(project, region, jobId).execute();
+
+    Job job =
+        Failsafe.with(clientRetryPolicy())
+            .get(() -> client.projects().locations().jobs().get(project, region, jobId).execute());
+
     LOG.info("Received job on get request for {}:\n{}", jobId, LogStrings.formatForLogging(job));
     return job;
   }
 
   @Override
   public JobState getJobStatus(String project, String region, String jobId) throws IOException {
-    LOG.info("Getting the status of {} under {}", jobId, project);
-
-    Job job = client.projects().locations().jobs().get(project, region, jobId).execute();
-    LOG.info("Received job on get request for {}:\n{}", jobId, LogStrings.formatForLogging(job));
-    return handleJobState(job);
+    return handleJobState(getJob(project, region, jobId));
   }
 
   @Override
-  public Job cancelJob(String project, String region, String jobId) throws IOException {
+  public Job cancelJob(String project, String region, String jobId) {
     LOG.info("Cancelling {} under {}", jobId, project);
     Job job = new Job().setRequestedState(JobState.CANCELLED.toString());
     LOG.info("Sending job to update {}:\n{}", jobId, LogStrings.formatForLogging(job));
-    return client.projects().locations().jobs().update(project, region, jobId, job).execute();
+    return Failsafe.with(clientRetryPolicy())
+        .get(
+            () ->
+                client.projects().locations().jobs().update(project, region, jobId, job).execute());
   }
 
   @Override
-  public Job drainJob(String project, String region, String jobId) throws IOException {
+  public Job drainJob(String project, String region, String jobId) {
     LOG.info("Draining {} under {}", jobId, project);
     Job job = new Job().setRequestedState(JobState.DRAINED.toString());
     LOG.info("Sending job to update {}:\n{}", jobId, LogStrings.formatForLogging(job));
-    return client.projects().locations().jobs().update(project, region, jobId, job).execute();
+    return Failsafe.with(clientRetryPolicy())
+        .get(
+            () ->
+                client.projects().locations().jobs().update(project, region, jobId, job).execute());
   }
 
   @Override
@@ -216,6 +225,8 @@ public abstract class AbstractPipelineLauncher implements PipelineLauncher {
   }
 
   /** Waits until the specified job is not in a pending state. */
+  // TODO(pranavbhandari): This method fails if any request to dataflow fails. Make this method more
+  // robust.
   public JobState waitUntilActive(String project, String region, String jobId) throws IOException {
     JobState state = getJobStatus(project, region, jobId);
     while (PENDING_STATES.contains(state)) {

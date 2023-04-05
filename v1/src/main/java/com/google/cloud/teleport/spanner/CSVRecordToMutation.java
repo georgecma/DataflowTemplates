@@ -24,16 +24,25 @@ import com.google.cloud.teleport.spanner.proto.TextImportProtos.ImportManifest.T
 import com.google.common.base.Strings;
 import com.google.common.primitives.Longs;
 import java.io.IOException;
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAccessor;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollectionView;
+import org.apache.beam.sdk.values.TupleTag;
 import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Converts a CSVRecord into a {@link Mutation} object.
@@ -43,7 +52,7 @@ import org.apache.commons.csv.CSVRecord;
  * a side input. When the record cannot be converted to the requested table schema, an
  * IllegalArgumentException will be raised.
  *
- * <p>Input PCollection is a @{code KV<tableName, CSVRecord>}
+ * <p>Input PCollection is a @{code KV&lt;tableName, CSVRecord&gt;}
  */
 class CSVRecordToMutation extends DoFn<KV<String, CSVRecord>, Mutation> {
 
@@ -57,6 +66,8 @@ class CSVRecordToMutation extends DoFn<KV<String, CSVRecord>, Mutation> {
   private final ValueProvider<String> nullString;
   private final ValueProvider<String> dateFormat;
   private final ValueProvider<String> timestampFormat;
+  private final ValueProvider<String> invalidOutputPath;
+  private final TupleTag<String> errorTag;
 
   private Mutation.WriteBuilder writeBuilder = null;
 
@@ -69,7 +80,9 @@ class CSVRecordToMutation extends DoFn<KV<String, CSVRecord>, Mutation> {
       ValueProvider<Character> escape,
       ValueProvider<String> nullString,
       ValueProvider<String> dateFormat,
-      ValueProvider<String> timestampFormat) {
+      ValueProvider<String> timestampFormat,
+      ValueProvider<String> invalidOutputPath,
+      TupleTag<String> errorTag) {
     this.ddlView = ddlView;
     this.tableColumnsView = tableColumnsView;
     this.columnDelimiter = columnDelimiter;
@@ -79,6 +92,8 @@ class CSVRecordToMutation extends DoFn<KV<String, CSVRecord>, Mutation> {
     this.nullString = nullString;
     this.dateFormat = dateFormat;
     this.timestampFormat = timestampFormat;
+    this.invalidOutputPath = invalidOutputPath;
+    this.errorTag = errorTag;
   }
 
   @ProcessElement
@@ -97,8 +112,16 @@ class CSVRecordToMutation extends DoFn<KV<String, CSVRecord>, Mutation> {
     try {
       c.output(parseRow(writeBuilder, row, table, tableColumnsMap.get(tableName)));
     } catch (IllegalArgumentException e) {
-      throw new RuntimeException(
-          String.format("Error to parseRow. row: %s, table: %s", row, table), e);
+
+      // Send to error tag only if output path is given, otherwise, throw exception.
+      if (invalidOutputPath != null && StringUtils.isNotEmpty(invalidOutputPath.get())) {
+        c.output(
+            errorTag,
+            StreamSupport.stream(row.spliterator(), false).collect(Collectors.joining(",")));
+      } else {
+        throw new RuntimeException(
+            String.format("Error to parseRow. row: %s, table: %s", row, table), e);
+      }
     }
   }
 
@@ -108,7 +131,7 @@ class CSVRecordToMutation extends DoFn<KV<String, CSVRecord>, Mutation> {
    *
    * @param builder MutationBuilder to construct
    * @param row CSVRecord parsed list of data cell
-   * @param Table table with column names and column data types
+   * @param table table with column names and column data types
    * @return the Mutation object built from the CSVRecord
    */
   protected final Mutation parseRow(
@@ -215,7 +238,18 @@ class CSVRecordToMutation extends DoFn<KV<String, CSVRecord>, Mutation> {
                   timestampFormat.get() == null
                       ? DateTimeFormatter.ISO_INSTANT
                       : DateTimeFormatter.ofPattern(timestampFormat.get());
-              Instant ts = Instant.from(formatter.parse(cellValue.trim()));
+              TemporalAccessor temporalAccessor = formatter.parse(cellValue.trim());
+
+              Instant ts;
+              try {
+                ts = Instant.from(temporalAccessor);
+              } catch (DateTimeException e) {
+                // Date format may not be converted because it lacks timezone, retry with UTC
+                LocalDateTime localDateTime = LocalDateTime.from(temporalAccessor);
+                ZonedDateTime zonedDateTime = ZonedDateTime.of(localDateTime, ZoneOffset.UTC);
+                ts = Instant.from(zonedDateTime);
+              }
+
               columnValue =
                   Value.timestamp(
                       com.google.cloud.Timestamp.ofTimeSecondsAndNanos(

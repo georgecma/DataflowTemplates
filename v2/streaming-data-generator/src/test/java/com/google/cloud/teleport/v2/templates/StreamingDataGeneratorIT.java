@@ -26,6 +26,12 @@ import com.google.cloud.teleport.it.TemplateTestBase;
 import com.google.cloud.teleport.it.artifacts.Artifact;
 import com.google.cloud.teleport.it.bigquery.BigQueryResourceManager;
 import com.google.cloud.teleport.it.bigquery.DefaultBigQueryResourceManager;
+import com.google.cloud.teleport.it.common.ResourceManagerUtils;
+import com.google.cloud.teleport.it.conditions.BigQueryRowsCheck;
+import com.google.cloud.teleport.it.conditions.PubsubMessagesCheck;
+import com.google.cloud.teleport.it.jdbc.DefaultPostgresResourceManager;
+import com.google.cloud.teleport.it.jdbc.JDBCResourceManager;
+import com.google.cloud.teleport.it.jdbc.JDBCResourceManager.JDBCSchema;
 import com.google.cloud.teleport.it.launcher.PipelineLauncher.LaunchConfig;
 import com.google.cloud.teleport.it.launcher.PipelineLauncher.LaunchInfo;
 import com.google.cloud.teleport.it.launcher.PipelineOperator.Result;
@@ -43,6 +49,7 @@ import com.google.pubsub.v1.TopicName;
 import com.google.re2j.Pattern;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -80,33 +87,23 @@ public final class StreamingDataGeneratorIT extends TemplateTestBase {
   private PubsubResourceManager pubsubResourceManager;
   private BigQueryResourceManager bigQueryResourceManager;
   private SpannerResourceManager spannerResourceManager;
+  private JDBCResourceManager jdbcResourceManager;
 
   @After
   public void tearDown() {
-    // clean up resources
-    if (pubsubResourceManager != null) {
-      pubsubResourceManager.cleanupAll();
-      pubsubResourceManager = null;
-    }
-    if (artifactClient != null) {
-      artifactClient.cleanupRun();
-      artifactClient = null;
-    }
-    if (bigQueryResourceManager != null) {
-      bigQueryResourceManager.cleanupAll();
-      bigQueryResourceManager = null;
-    }
-    if (spannerResourceManager != null) {
-      spannerResourceManager.cleanupAll();
-      spannerResourceManager = null;
-    }
+    ResourceManagerUtils.cleanResources(
+        pubsubResourceManager,
+        gcsClient,
+        bigQueryResourceManager,
+        spannerResourceManager,
+        jdbcResourceManager);
   }
 
   @Test
   public void testFakeMessagesToGcs() throws IOException {
     // Arrange
-    artifactClient.uploadArtifact(SCHEMA_FILE, LOCAL_SCHEMA_PATH);
-    String name = testName.getMethodName();
+    gcsClient.uploadArtifact(SCHEMA_FILE, LOCAL_SCHEMA_PATH);
+    String name = testName;
 
     LaunchConfig.Builder options =
         LaunchConfig.builder(testName, specPath)
@@ -128,7 +125,7 @@ public final class StreamingDataGeneratorIT extends TemplateTestBase {
                 createConfig(info),
                 () -> {
                   List<Artifact> outputFiles =
-                      artifactClient.listArtifacts(name, Pattern.compile(".*output-.*"));
+                      gcsClient.listArtifacts(name, Pattern.compile(".*output-.*"));
                   return !outputFiles.isEmpty();
                 });
 
@@ -155,10 +152,7 @@ public final class StreamingDataGeneratorIT extends TemplateTestBase {
         pipelineOperator()
             .waitForConditionAndFinish(
                 createConfig(info),
-                () ->
-                    !artifactClient
-                        .listArtifacts(testName, Pattern.compile(".*output-.*"))
-                        .isEmpty());
+                () -> !gcsClient.listArtifacts(testName, Pattern.compile(".*output-.*")).isEmpty());
 
     // Assert
     assertThatResult(result).meetsConditions();
@@ -168,7 +162,7 @@ public final class StreamingDataGeneratorIT extends TemplateTestBase {
   public void testFakeMessagesToPubSub() throws IOException {
     // Set up resource manager
     pubsubResourceManager =
-        DefaultPubsubResourceManager.builder(testName.getMethodName(), PROJECT)
+        DefaultPubsubResourceManager.builder(testName, PROJECT)
             .credentialsProvider(credentialsProvider)
             .build();
     TopicName backlogTopic = pubsubResourceManager.createTopic("output");
@@ -185,11 +179,12 @@ public final class StreamingDataGeneratorIT extends TemplateTestBase {
     // Act
     LaunchInfo info = launchTemplate(options);
     assertThatPipeline(info).isRunning();
-    Result result =
-        pipelineOperator()
-            .waitForConditionAndFinish(
-                createConfig(info),
-                () -> pubsubResourceManager.pull(subscription, 5).getReceivedMessagesCount() > 0);
+
+    PubsubMessagesCheck pubsubCheck =
+        PubsubMessagesCheck.builder(pubsubResourceManager, subscription).setMinMessages(1).build();
+
+    Result result = pipelineOperator().waitForConditionAndFinish(createConfig(info), pubsubCheck);
+
     // Assert
     assertThatResult(result).meetsConditions();
   }
@@ -198,7 +193,7 @@ public final class StreamingDataGeneratorIT extends TemplateTestBase {
   public void testFakeMessagesToBigQuery() throws IOException {
     // Set up resource manager
     bigQueryResourceManager =
-        DefaultBigQueryResourceManager.builder(testName.getMethodName(), PROJECT)
+        DefaultBigQueryResourceManager.builder(testName, PROJECT)
             .setCredentials(credentials)
             .build();
     // schema should match schema supplied to generate fake records.
@@ -214,13 +209,13 @@ public final class StreamingDataGeneratorIT extends TemplateTestBase {
             Field.of("score", StandardSQLTypeName.INT64),
             Field.of("completed", StandardSQLTypeName.BOOL));
     // Arrange
-    TableId table = bigQueryResourceManager.createTable(testName.getMethodName(), schema);
+    TableId table = bigQueryResourceManager.createTable(testName, schema);
     LaunchConfig.Builder options =
         LaunchConfig.builder(testName, specPath)
             .addParameter(SCHEMA_TEMPLATE_KEY, String.valueOf(SchemaTemplate.GAME_EVENT))
             .addParameter(QPS_KEY, HIGH_QPS)
             .addParameter(SINK_TYPE_KEY, "BIGQUERY")
-            .addParameter(OUTPUT_TABLE_SPEC, toTableSpec(table));
+            .addParameter(OUTPUT_TABLE_SPEC, toTableSpecLegacy(table));
 
     // Act
     LaunchInfo info = launchTemplate(options);
@@ -229,7 +224,7 @@ public final class StreamingDataGeneratorIT extends TemplateTestBase {
         pipelineOperator()
             .waitForConditionAndFinish(
                 createConfig(info),
-                () -> bigQueryResourceManager.readTable(table.getTable()).getTotalRows() > 0);
+                BigQueryRowsCheck.builder(bigQueryResourceManager, table).setMinRows(1).build());
     // Assert
     assertThatResult(result).meetsConditions();
   }
@@ -238,7 +233,7 @@ public final class StreamingDataGeneratorIT extends TemplateTestBase {
   public void testFakeMessagesToBigQueryWithErrors() throws IOException {
     // Set up resource manager
     bigQueryResourceManager =
-        DefaultBigQueryResourceManager.builder(testName.getMethodName(), PROJECT)
+        DefaultBigQueryResourceManager.builder(testName, PROJECT)
             .setCredentials(credentials)
             .build();
     // removes fields intentionally to reproduce DLQ errors
@@ -251,7 +246,7 @@ public final class StreamingDataGeneratorIT extends TemplateTestBase {
             Field.of("country", StandardSQLTypeName.STRING),
             Field.of("username", StandardSQLTypeName.STRING));
     // Arrange
-    TableId table = bigQueryResourceManager.createTable(testName.getMethodName(), schema);
+    TableId table = bigQueryResourceManager.createTable(testName, schema);
     TableId dlq = TableId.of(table.getDataset(), table.getTable() + "_dlq");
 
     LaunchConfig.Builder options =
@@ -259,8 +254,8 @@ public final class StreamingDataGeneratorIT extends TemplateTestBase {
             .addParameter(SCHEMA_TEMPLATE_KEY, String.valueOf(SchemaTemplate.GAME_EVENT))
             .addParameter(QPS_KEY, HIGH_QPS)
             .addParameter(SINK_TYPE_KEY, "BIGQUERY")
-            .addParameter(OUTPUT_TABLE_SPEC, toTableSpec(table))
-            .addParameter(OUTPUT_DEADLETTER_TABLE, toTableSpec(dlq));
+            .addParameter(OUTPUT_TABLE_SPEC, toTableSpecLegacy(table))
+            .addParameter(OUTPUT_DEADLETTER_TABLE, toTableSpecLegacy(dlq));
 
     // Act
     LaunchInfo info = launchTemplate(options);
@@ -269,14 +264,7 @@ public final class StreamingDataGeneratorIT extends TemplateTestBase {
         pipelineOperator()
             .waitForConditionAndFinish(
                 createConfig(info),
-                () -> {
-                  try {
-                    return bigQueryResourceManager.readTable(dlq.getTable()).getTotalRows() > 0;
-                  } catch (Exception e) {
-                    LOG.info("Error pulling records from {}: {}", dlq.getTable(), e.getMessage());
-                    return false;
-                  }
-                });
+                BigQueryRowsCheck.builder(bigQueryResourceManager, dlq).setMinRows(1).build());
 
     // Assert
     assertThatResult(result).meetsConditions();
@@ -286,7 +274,7 @@ public final class StreamingDataGeneratorIT extends TemplateTestBase {
   public void testFakeMessagesToSpanner() throws IOException {
     // Arrange
     spannerResourceManager =
-        DefaultSpannerResourceManager.builder(testName.getMethodName(), PROJECT, REGION).build();
+        DefaultSpannerResourceManager.builder(testName, PROJECT, REGION).build();
     String createTableStatement =
         String.format(
             "CREATE TABLE `%s` (\n"
@@ -300,7 +288,7 @@ public final class StreamingDataGeneratorIT extends TemplateTestBase {
                 + "  score INT64,\n"
                 + "  completed BOOL,\n"
                 + ") PRIMARY KEY(eventId)",
-            testName.getMethodName());
+            testName);
     ImmutableList<String> columnNames =
         ImmutableList.of(
             "eventId",
@@ -322,7 +310,7 @@ public final class StreamingDataGeneratorIT extends TemplateTestBase {
             .addParameter("projectId", PROJECT)
             .addParameter("spannerInstanceName", spannerResourceManager.getInstanceId())
             .addParameter("spannerDatabaseName", spannerResourceManager.getDatabaseId())
-            .addParameter("spannerTableName", testName.getMethodName());
+            .addParameter("spannerTableName", testName);
 
     // Act
     LaunchInfo info = launchTemplate(options);
@@ -332,10 +320,54 @@ public final class StreamingDataGeneratorIT extends TemplateTestBase {
         pipelineOperator()
             .waitForConditionAndFinish(
                 createConfig(info),
-                () ->
-                    !spannerResourceManager
-                        .readTableRecords(testName.getMethodName(), columnNames)
-                        .isEmpty());
+                () -> !spannerResourceManager.readTableRecords(testName, columnNames).isEmpty());
+
+    // Assert
+    assertThatResult(result).meetsConditions();
+  }
+
+  @Test
+  public void testFakeMessagesToJdbc() throws IOException {
+    jdbcResourceManager = DefaultPostgresResourceManager.builder(testName).setHost(HOST_IP).build();
+    JDBCSchema jdbcSchema =
+        new JDBCSchema(
+            Map.of(
+                "eventId", "VARCHAR(100)",
+                "eventTimestamp", "TIMESTAMP",
+                "ipv4", "VARCHAR(100)",
+                "ipv6", "VARCHAR(100)",
+                "country", "VARCHAR(100)",
+                "username", "VARCHAR(100)",
+                "quest", "VARCHAR(100)",
+                "score", "INTEGER",
+                "completed", "BOOLEAN"),
+            "eventId");
+    jdbcResourceManager.createTable(testName, jdbcSchema);
+    String statement =
+        String.format(
+            "INSERT INTO %s (eventId,eventTimestamp,ipv4,ipv6,country,username,quest,score,completed) VALUES (?,to_timestamp(?/1000),?,?,?,?,?,?,?)",
+            testName);
+    String driverClassName = "org.postgresql.Driver";
+
+    LaunchConfig.Builder options =
+        LaunchConfig.builder(testName, specPath)
+            .addParameter(SCHEMA_TEMPLATE_KEY, SchemaTemplate.GAME_EVENT.name())
+            .addParameter(QPS_KEY, DEFAULT_QPS)
+            .addParameter(SINK_TYPE_KEY, SinkType.JDBC.name())
+            .addParameter("driverClassName", driverClassName)
+            .addParameter("connectionUrl", jdbcResourceManager.getUri())
+            .addParameter("statement", statement)
+            .addParameter("username", jdbcResourceManager.getUsername())
+            .addParameter("password", jdbcResourceManager.getPassword());
+
+    // Act
+    LaunchInfo info = launchTemplate(options);
+    assertThatPipeline(info).isRunning();
+
+    Result result =
+        pipelineOperator()
+            .waitForConditionAndFinish(
+                createConfig(info), () -> !jdbcResourceManager.readTable(testName).isEmpty());
 
     // Assert
     assertThatResult(result).meetsConditions();

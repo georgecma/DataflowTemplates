@@ -26,6 +26,7 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.re2j.Pattern;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -40,7 +41,7 @@ import org.slf4j.LoggerFactory;
  * Client for working with test artifacts stored in Google Cloud Storage.
  *
  * <p>Tests should store this as a static value of the class and call {@link
- * ArtifactClient#cleanupRun()} in the {@code @AfterClass} method.
+ * ArtifactClient#cleanupAll()} in the {@code @AfterClass} method.
  */
 public final class GcsArtifactClient implements ArtifactClient {
   private static final Logger LOG = LoggerFactory.getLogger(GcsArtifactClient.class);
@@ -68,6 +69,11 @@ public final class GcsArtifactClient implements ArtifactClient {
   @Override
   public String runId() {
     return runId;
+  }
+
+  @Override
+  public Artifact createArtifact(String artifactName, String contents) {
+    return this.createArtifact(artifactName, contents.getBytes(StandardCharsets.UTF_8));
   }
 
   @Override
@@ -118,7 +124,11 @@ public final class GcsArtifactClient implements ArtifactClient {
   @Override
   public List<Artifact> listArtifacts(String prefix, Pattern regex) {
     String listFrom = joinPathParts(testClassName, runId, prefix);
-    LOG.info("Listing everything under '{}' that matches '{}'", listFrom, regex.pattern());
+    LOG.info(
+        "Listing everything under 'gs://{}/{}' that matches '{}'",
+        bucket,
+        listFrom,
+        regex.pattern());
 
     List<Artifact> matched = new ArrayList<>();
     Page<Blob> firstPage = getFirstPage(listFrom);
@@ -136,7 +146,7 @@ public final class GcsArtifactClient implements ArtifactClient {
   }
 
   @Override
-  public void cleanupRun() {
+  public void cleanupAll() {
     String path = joinPathParts(testClassName, runId);
     LOG.info("Cleaning up everything under '{}' under bucket '{}'", path, bucket);
 

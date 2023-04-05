@@ -31,7 +31,6 @@ import java.util.List;
 import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -46,7 +45,7 @@ import org.testcontainers.utility.DockerImageName;
  *
  * <p>The class is thread-safe.
  */
-public class DefaultMongoDBResourceManager extends TestContainerResourceManager<GenericContainer<?>>
+public class DefaultMongoDBResourceManager extends TestContainerResourceManager<MongoDBContainer>
     implements MongoDBResourceManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(DefaultMongoDBResourceManager.class);
@@ -67,7 +66,7 @@ public class DefaultMongoDBResourceManager extends TestContainerResourceManager<
 
   private DefaultMongoDBResourceManager(DefaultMongoDBResourceManager.Builder builder) {
     this(
-        /*mongoClient=*/ null,
+        /* mongoClient= */ null,
         new MongoDBContainer(
             DockerImageName.parse(builder.containerImageName).withTag(builder.containerImageTag)),
         builder);
@@ -128,7 +127,7 @@ public class DefaultMongoDBResourceManager extends TestContainerResourceManager<
 
   @Override
   public synchronized boolean createCollection(String collectionName) {
-    LOG.info("Creating collection using tableName '{}'.", collectionName);
+    LOG.info("Creating collection using collectionName '{}'.", collectionName);
 
     try {
       // Check to see if the Collection exists
@@ -164,15 +163,7 @@ public class DefaultMongoDBResourceManager extends TestContainerResourceManager<
     return getDatabase().getCollection(collectionName);
   }
 
-  /**
-   * Inserts the given Document into a collection.
-   *
-   * <p>A database will be created here, if one does not already exist.
-   *
-   * @param collectionName The name of the collection to insert the document into.
-   * @param document The document to insert into the collection.
-   * @return A boolean indicating whether the Document was inserted successfully.
-   */
+  @Override
   public synchronized boolean insertDocument(String collectionName, Document document) {
     return insertDocuments(collectionName, ImmutableList.of(document));
   }
@@ -186,7 +177,7 @@ public class DefaultMongoDBResourceManager extends TestContainerResourceManager<
         collectionName);
 
     try {
-      getMongoDBCollection(collectionName, /*createCollection=*/ true).insertMany(documents);
+      getMongoDBCollection(collectionName, /* createCollection= */ true).insertMany(documents);
     } catch (Exception e) {
       throw new MongoDBResourceManagerException("Error inserting documents.", e);
     }
@@ -203,7 +194,7 @@ public class DefaultMongoDBResourceManager extends TestContainerResourceManager<
 
     FindIterable<Document> documents;
     try {
-      documents = getMongoDBCollection(collectionName, /*createCollection=*/ false).find();
+      documents = getMongoDBCollection(collectionName, /* createCollection= */ false).find();
     } catch (Exception e) {
       throw new MongoDBResourceManagerException("Error reading collection.", e);
     }
@@ -214,7 +205,7 @@ public class DefaultMongoDBResourceManager extends TestContainerResourceManager<
   }
 
   @Override
-  public synchronized boolean cleanupAll() {
+  public synchronized void cleanupAll() {
     LOG.info("Attempting to cleanup MongoDB manager.");
 
     boolean producedError = false;
@@ -238,14 +229,14 @@ public class DefaultMongoDBResourceManager extends TestContainerResourceManager<
     }
 
     // Throw Exception at the end if there were any errors
-    if (producedError || !super.cleanupAll()) {
+    if (producedError) {
       throw new MongoDBResourceManagerException(
           "Failed to delete resources. Check above for errors.");
     }
 
-    LOG.info("MongoDB manager successfully cleaned up.");
+    super.cleanupAll();
 
-    return true;
+    LOG.info("MongoDB manager successfully cleaned up.");
   }
 
   /** Builder for {@link DefaultMongoDBResourceManager}. */

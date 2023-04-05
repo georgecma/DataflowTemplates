@@ -36,6 +36,9 @@ public @interface Template {
   /** The description of the template. */
   String description();
 
+  /** Additional help information to display on documentations. */
+  String additionalHelp() default "";
+
   /** Container name to stage (required for Flex templates). */
   String flexContainerName() default "";
 
@@ -48,6 +51,12 @@ public @interface Template {
   /** Skip options that are not used for this template. Used mainly with {@link MultiTemplate}. * */
   String[] skipOptions() default "";
 
+  /**
+   * Optional options that are not used for this template. Used mainly with {@link MultiTemplate} or
+   * reusable options classes.. *
+   */
+  String[] optionalOptions() default "";
+
   /** The external class that holds the template code. */
   Class<?> placeholderClass() default void.class;
 
@@ -56,6 +65,9 @@ public @interface Template {
 
   /** An array that specifies the orders. */
   Class<?>[] optionsOrder() default void.class;
+
+  /** Link to the documentation. */
+  String documentation() default "";
 
   /** Contact information for the Template. */
   String contactInformation() default "";

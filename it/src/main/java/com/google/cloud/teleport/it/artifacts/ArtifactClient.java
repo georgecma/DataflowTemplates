@@ -15,6 +15,7 @@
  */
 package com.google.cloud.teleport.it.artifacts;
 
+import com.google.cloud.teleport.it.common.ResourceManager;
 import com.google.re2j.Pattern;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -45,7 +46,7 @@ import org.junit.rules.TestName;
  * <p>Separate input/output directories are optional and the responsibility of the test writer to
  * maintain.
  */
-public interface ArtifactClient {
+public interface ArtifactClient extends ResourceManager {
 
   /** Returns the id associated with the particular run of the test class. */
   String runId();
@@ -55,7 +56,17 @@ public interface ArtifactClient {
    *
    * @param artifactName the name of the artifact. If this is supposed to go under an input/output
    *     directory, then it should include that (example: input/artifact.txt)
-   * @param contents the contents of the artifact
+   * @param contents the contents of the artifact in String format
+   * @return a representation of the created artifact
+   */
+  Artifact createArtifact(String artifactName, String contents);
+
+  /**
+   * Creates a new artifact in whatever service is being used to store them.
+   *
+   * @param artifactName the name of the artifact. If this is supposed to go under an input/output
+   *     directory, then it should include that (example: input/artifact.txt)
+   * @param contents the contents of the artifact in byte array format
    * @return a representation of the created artifact
    */
   Artifact createArtifact(String artifactName, byte[] contents);
@@ -104,5 +115,5 @@ public interface ArtifactClient {
   List<Artifact> listArtifacts(String prefix, Pattern regex);
 
   /** Deletes all the files located under test-class-name/run-id. */
-  void cleanupRun();
+  void cleanupAll();
 }

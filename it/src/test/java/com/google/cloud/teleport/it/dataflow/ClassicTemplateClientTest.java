@@ -38,7 +38,9 @@ import com.google.cloud.teleport.it.launcher.PipelineLauncher.JobState;
 import com.google.cloud.teleport.it.launcher.PipelineLauncher.LaunchConfig;
 import com.google.cloud.teleport.it.launcher.PipelineLauncher.LaunchInfo;
 import com.google.common.collect.ImmutableMap;
+import dev.failsafe.FailsafeException;
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -101,11 +103,15 @@ public final class ClassicTemplateClientTest {
             .setType("JOB_TYPE_BATCH");
 
     LaunchConfig options =
-        LaunchConfig.builder(JOB_NAME, SPEC_PATH).addParameter(PARAM_KEY, PARAM_VALUE).build();
+        LaunchConfig.builderWithName(JOB_NAME, SPEC_PATH)
+            .addParameter(PARAM_KEY, PARAM_VALUE)
+            .build();
 
     when(getTemplates(client).create(any(), any(), any())).thenReturn(launch);
     when(getLocationJobs(client).get(any(), any(), any())).thenReturn(get);
-    when(launch.execute()).thenReturn(launchJob);
+    when(launch.execute())
+        .thenThrow(new SocketTimeoutException("Read timed out"))
+        .thenReturn(launchJob);
     when(get.execute()).thenReturn(getJob);
 
     // Act
@@ -120,7 +126,7 @@ public final class ClassicTemplateClientTest {
             .setParameters(ImmutableMap.of(PARAM_KEY, PARAM_VALUE))
             .setLocation(REGION)
             .setEnvironment(new RuntimeEnvironment());
-    verify(getTemplates(client))
+    verify(getTemplates(client), times(2))
         .create(projectCaptor.capture(), regionCaptor.capture(), requestCaptor.capture());
     assertThat(projectCaptor.getValue()).isEqualTo(PROJECT);
     assertThat(regionCaptor.getValue()).isEqualTo(REGION);
@@ -152,7 +158,7 @@ public final class ClassicTemplateClientTest {
   public void testLaunchNewJobThrowsException() throws IOException {
     when(getTemplates(client).create(any(), any(), any())).thenThrow(new IOException());
     assertThrows(
-        IOException.class,
+        FailsafeException.class,
         () ->
             ClassicTemplateClient.withDataflowClient(client)
                 .launch(PROJECT, REGION, LaunchConfig.builder(JOB_NAME, SPEC_PATH).build()));
