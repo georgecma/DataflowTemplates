@@ -44,9 +44,7 @@ import org.apache.beam.sdk.values.PCollection;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
-import org.apache.hadoop.hbase.client.RowMutations;
 import org.apache.hadoop.util.Time;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -60,12 +58,6 @@ public class ChangeStreamToRowMutationsTest {
   private static final Logger log = LoggerFactory.getLogger(ChangeStreamToRowMutationsTest.class);
 
   @Rule public final transient TestPipeline pipeline = TestPipeline.create();
-
-  @Before
-  public void setUp() {
-    // Provide custom encoder to non-serializable RowMutations class.
-    // pipeline.getCoderRegistry().registerCoderForClass(RowMutations.class, RowMutationsCoder.of());
-  }
 
   @Test
   public void testConvertsSetCellToHbasePut() throws Exception {
