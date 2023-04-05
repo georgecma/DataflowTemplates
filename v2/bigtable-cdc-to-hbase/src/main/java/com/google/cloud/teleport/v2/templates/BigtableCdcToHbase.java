@@ -56,12 +56,12 @@ import org.slf4j.LoggerFactory;
     category = TemplateCategory.STREAMING,
     displayName = "Bigtable CDC to HBase Replicator",
     description = "A streaming pipeline that replicates Bigtable change stream data to HBase",
-    optionsClass = BigtableToHbasePipeline.BigtableToHbasePipelineOptions.class,
+    optionsClass = BigtableCdcToHbase.BigtableToHbasePipelineOptions.class,
     flexContainerName = "bigtable-cdc-to-hbase",
     contactInformation = "https://cloud.google.com/support")
-public class BigtableToHbasePipeline {
+public class BigtableCdcToHbase {
 
-  private static final Logger LOG = LoggerFactory.getLogger(BigtableToHbasePipeline.class);
+  private static final Logger LOG = LoggerFactory.getLogger(BigtableCdcToHbase.class);
   private static final String USE_RUNNER_V2_EXPERIMENT = "use_runner_v2";
 
   /** Options to run pipeline with. */
@@ -210,7 +210,7 @@ public class BigtableToHbasePipeline {
             : Timestamp.parseTimestamp(pipelineOptions.getEndTimestamp());
 
     LOG.info(
-        "BigtableToHbasePipeline pipeline.",
+        "BigtableCdcToHbase pipeline.",
         startTimestamp.toString(),
         "to",
         endTimestamp.toString());
@@ -240,6 +240,7 @@ public class BigtableToHbasePipeline {
     } else {
       convertedMutations.apply(
           "Write row mutations to HBase",
+          // HBaseIO.writeRowMutatations()
           HbaseRowMutationIO.writeRowMutations()
               .withConfiguration(hbaseConf)
               .withTableId(pipelineOptions.getTableId()));
